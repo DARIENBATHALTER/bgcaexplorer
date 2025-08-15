@@ -420,9 +420,20 @@ class ArchiveLoader {
                 // If direct patterns fail, try to find files with shortcode anywhere in filename
                 try {
                     for await (const [name, handle] of subtitlesDir.entries()) {
+                        // Skip macOS resource forks and hidden files
+                        if (name.startsWith('._') || name.startsWith('.DS_Store') || name.includes('ATTR')) {
+                            continue;
+                        }
+                        
                         if (handle.kind === 'file' && name.includes(shortcode) && name.endsWith('_en_auto_ytdlp.txt')) {
                             const file = await handle.getFile();
                             const transcriptText = await file.text();
+                            
+                            // Check if this is actually a resource fork by looking for binary content
+                            if (transcriptText.includes('Mac OS X') && transcriptText.includes('ATTR') && transcriptText.includes('resource fork')) {
+                                console.log(`⚠️ Skipping macOS resource fork: ${name}`);
+                                continue;
+                            }
                             
                             const transcript = {
                                 video_id: shortcode,
@@ -443,6 +454,12 @@ class ArchiveLoader {
                         const transcriptFile = await subtitlesDir.getFileHandle(pattern);
                         const file = await transcriptFile.getFile();
                         const transcriptText = await file.text();
+                        
+                        // Check if this is actually a resource fork by looking for binary content
+                        if (transcriptText.includes('Mac OS X') && transcriptText.includes('ATTR') && transcriptText.includes('resource fork')) {
+                            console.log(`⚠️ Skipping macOS resource fork: ${pattern}`);
+                            continue;
+                        }
                         
                         const transcript = {
                             video_id: shortcode,
@@ -533,9 +550,20 @@ class ArchiveLoader {
                     // If direct patterns fail, try to find files with shortcode anywhere in filename
                     try {
                         for await (const [name, handle] of summariesDir.entries()) {
+                            // Skip macOS resource forks and hidden files
+                            if (name.startsWith('._') || name.startsWith('.DS_Store') || name.includes('ATTR')) {
+                                continue;
+                            }
+                            
                             if (handle.kind === 'file' && name.includes(shortcode) && name.includes('_summary')) {
                                 const file = await handle.getFile();
                                 const summaryText = await file.text();
+                                
+                                // Check if this is actually a resource fork by looking for binary content
+                                if (summaryText.includes('Mac OS X') && summaryText.includes('ATTR') && summaryText.includes('resource fork')) {
+                                    console.log(`⚠️ Skipping macOS resource fork: ${name}`);
+                                    continue;
+                                }
                                 
                                 const summary = {
                                     video_id: shortcode,
@@ -556,6 +584,12 @@ class ArchiveLoader {
                             const summaryFile = await summariesDir.getFileHandle(pattern);
                             const file = await summaryFile.getFile();
                             const summaryText = await file.text();
+                            
+                            // Check if this is actually a resource fork by looking for binary content
+                            if (summaryText.includes('Mac OS X') && summaryText.includes('ATTR') && summaryText.includes('resource fork')) {
+                                console.log(`⚠️ Skipping macOS resource fork: ${pattern}`);
+                                continue;
+                            }
                             
                             const summary = {
                                 video_id: shortcode,
@@ -663,9 +697,20 @@ class ArchiveLoader {
                 // If direct patterns fail, try to find files with shortcode anywhere in filename
                 try {
                     for await (const [name, handle] of commentsDir.entries()) {
+                        // Skip macOS resource forks and hidden files
+                        if (name.startsWith('._') || name.startsWith('.DS_Store') || name.includes('ATTR')) {
+                            continue;
+                        }
+                        
                         if (handle.kind === 'file' && name.includes(shortcode) && name.includes('_comments')) {
                             const file = await handle.getFile();
                             const fileContent = await file.text();
+                            
+                            // Check if this is actually a resource fork by looking for binary content
+                            if (fileContent.includes('Mac OS X') && fileContent.includes('ATTR') && fileContent.includes('resource fork')) {
+                                console.log(`⚠️ Skipping macOS resource fork: ${name}`);
+                                continue;
+                            }
                             
                             let commentsData;
                             try {
