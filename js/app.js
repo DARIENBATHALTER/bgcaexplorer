@@ -765,6 +765,24 @@ class ArchiveExplorer {
                 });
             }
 
+            // Channel Analytics filter clicks
+            document.addEventListener('click', (e) => {
+                if (e.target.closest('[data-filter-type]')) {
+                    const filterElement = e.target.closest('[data-filter-type]');
+                    const filterType = filterElement.dataset.filterType;
+                    const filterValue = filterElement.dataset.filterValue;
+                    
+                    // Close the modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('channelAnalyticsModal'));
+                    if (modal) {
+                        modal.hide();
+                    }
+                    
+                    // Apply the filter
+                    this.applyAnalyticsFilter(filterType, filterValue);
+                }
+            });
+
             // Keyword Analytics button
             const keywordAnalyticsBtn = document.getElementById('keywordAnalyticsBtn');
             if (keywordAnalyticsBtn) {
@@ -1946,6 +1964,183 @@ class ArchiveExplorer {
     }
 
     /**
+     * Apply filter from Channel Analytics
+     */
+    async applyAnalyticsFilter(filterType, filterValue) {
+        // Return to grid view if we're in video detail
+        if (this.currentView === 'video-detail') {
+            this.showVideoGrid();
+        }
+        
+        // Clear existing search and filters
+        if (this.elements.searchInput) {
+            this.elements.searchInput.value = '';
+        }
+        this.currentFilters = {};
+        
+        // Get all videos from data manager
+        const allVideos = this.dataManager.videos || [];
+        let filteredVideos = [];
+        
+        if (filterType === 'category') {
+            filteredVideos = this.filterVideosByCategory(allVideos, filterValue);
+        } else if (filterType === 'theme') {
+            filteredVideos = this.filterVideosByTheme(allVideos, filterValue);
+        }
+        
+        console.log(`🔍 Filtered ${filteredVideos.length} videos for ${filterType}: ${filterValue}`);
+        
+        // Store filtered results
+        this.currentFilteredVideos = filteredVideos;
+        
+        // Update search input to show the filter
+        if (this.elements.searchInput) {
+            this.elements.searchInput.value = `${filterType}:"${filterValue}"`;
+        }
+        
+        // Reset pagination
+        this.currentPagination.page = 1;
+        
+        // Render appropriate view
+        if (this.isListView) {
+            this.renderVideoList(filteredVideos);
+        } else {
+            this.renderVideoGrid(filteredVideos);
+        }
+        
+        // Update channel stats
+        this.updateChannelStats();
+        
+        // Show success message
+        this.showSuccess(`Showing ${filteredVideos.length} videos filtered by: ${filterValue}`, 3000);
+    }
+
+    /**
+     * Filter videos by category based on title and keywords
+     */
+    filterVideosByCategory(videos, categoryValue) {
+        return videos.filter(video => {
+            const title = (video.title || '').toLowerCase();
+            const description = (video.description || '').toLowerCase();
+            const keywords = this.getVideoKeywords(video.video_id) || [];
+            const keywordText = keywords.join(' ').toLowerCase();
+            
+            // Define category matching logic
+            switch (categoryValue) {
+                case 'Youth of the Year':
+                    return title.includes('youth of the year') || 
+                           title.includes('youth year') ||
+                           keywordText.includes('youth of the year') ||
+                           description.includes('youth of the year');
+                           
+                case 'Alumni':
+                    return title.includes('alumni') || 
+                           title.includes('graduate') ||
+                           title.includes('former member') ||
+                           keywordText.includes('alumni') ||
+                           description.includes('alumni');
+                           
+                case 'Personal':
+                    return title.includes('story') || 
+                           title.includes('journey') ||
+                           title.includes('experience') ||
+                           title.includes('personal') ||
+                           keywordText.includes('story') ||
+                           keywordText.includes('personal');
+                           
+                case 'Partnership':
+                    return title.includes('partner') || 
+                           title.includes('collaboration') ||
+                           title.includes('sponsor') ||
+                           keywordText.includes('partner') ||
+                           description.includes('partner');
+                           
+                case 'Educational':
+                    return title.includes('education') || 
+                           title.includes('learning') ||
+                           title.includes('school') ||
+                           title.includes('academic') ||
+                           title.includes('homework') ||
+                           keywordText.includes('education') ||
+                           keywordText.includes('learning');
+                           
+                case 'PSA':
+                    return title.includes('psa') || 
+                           title.includes('public service') ||
+                           title.includes('announcement') ||
+                           title.includes('campaign') ||
+                           keywordText.includes('psa') ||
+                           keywordText.includes('campaign');
+                           
+                default:
+                    return false;
+            }
+        });
+    }
+
+    /**
+     * Filter videos by theme based on keywords and content
+     */
+    filterVideosByTheme(videos, themeValue) {
+        return videos.filter(video => {
+            const title = (video.title || '').toLowerCase();
+            const description = (video.description || '').toLowerCase();
+            const keywords = this.getVideoKeywords(video.video_id) || [];
+            const keywordText = keywords.join(' ').toLowerCase();
+            
+            // Define theme matching logic
+            switch (themeValue) {
+                case 'Community Support':
+                    return title.includes('community') || 
+                           title.includes('support') ||
+                           title.includes('help') ||
+                           title.includes('neighborhood') ||
+                           keywordText.includes('community') ||
+                           keywordText.includes('support');
+                           
+                case 'Mentorship':
+                    return title.includes('mentor') || 
+                           title.includes('guidance') ||
+                           title.includes('coach') ||
+                           title.includes('role model') ||
+                           keywordText.includes('mentor') ||
+                           keywordText.includes('guidance');
+                           
+                case 'Personal Growth':
+                    return title.includes('growth') || 
+                           title.includes('development') ||
+                           title.includes('confidence') ||
+                           title.includes('self') ||
+                           title.includes('potential') ||
+                           keywordText.includes('growth') ||
+                           keywordText.includes('development');
+                           
+                case 'Leadership Development':
+                    return title.includes('leader') || 
+                           title.includes('leadership') ||
+                           title.includes('president') ||
+                           title.includes('officer') ||
+                           keywordText.includes('leader') ||
+                           keywordText.includes('leadership');
+                           
+                case 'Education':
+                    return title.includes('education') || 
+                           title.includes('learning') ||
+                           title.includes('school') ||
+                           title.includes('academic') ||
+                           title.includes('college') ||
+                           title.includes('scholarship') ||
+                           keywordText.includes('education') ||
+                           keywordText.includes('learning') ||
+                           keywordText.includes('scholarship');
+                           
+                default:
+                    return false;
+            }
+        });
+    }
+
+    /**
      * Handle sort selection
      */
     async handleSort(sortBy) {
@@ -2212,7 +2407,9 @@ class ArchiveExplorer {
                 this.renderSentimentAnalysis(sentimentData);
                 this.renderThemesAnalysis(themesData);
                 
-                this.elements.commentInsights.style.display = 'block';
+                if (this.elements.commentInsights) {
+                    this.elements.commentInsights.style.display = 'block';
+                }
                 return;
             }
 
@@ -2221,7 +2418,9 @@ class ArchiveExplorer {
             const flatComments = this.flattenComments(allComments);
 
             if (flatComments.length === 0) {
-                this.elements.commentInsights.style.display = 'none';
+                if (this.elements.commentInsights) {
+                    this.elements.commentInsights.style.display = 'none';
+                }
                 return;
             }
 
@@ -2236,11 +2435,15 @@ class ArchiveExplorer {
             this.renderAnalyticsLikedWords(likedWords);
             this.renderSentimentAnalysis(sentimentData);
             this.renderThemesAnalysis(themesData);
-            this.elements.commentInsights.style.display = 'block';
+            if (this.elements.commentInsights) {
+                this.elements.commentInsights.style.display = 'block';
+            }
 
         } catch (error) {
             console.error('❌ Failed to generate insights:', error);
-            this.elements.commentInsights.style.display = 'none';
+            if (this.elements.commentInsights) {
+                this.elements.commentInsights.style.display = 'none';
+            }
         }
     }
 
@@ -2790,82 +2993,9 @@ class ArchiveExplorer {
      * Show channel analytics modal
      */
     async showChannelAnalytics() {
-        // Show immediate loading toast
-        this.showLoadingToast('Loading comment analytics panel...');
-        
-        const modal = new bootstrap.Modal(document.getElementById('commentAnalyticsModal'));
-        const loadingDiv = document.getElementById('commentAnalyticsLoading');
-        const contentDiv = document.getElementById('commentAnalyticsContent');
-        const progressBar = document.getElementById('commentAnalyticsProgress');
-
-        // Show modal and loading state
+        // Show the Channel Analytics modal with static content
+        const modal = new bootstrap.Modal(document.getElementById('channelAnalyticsModal'));
         modal.show();
-        loadingDiv.style.display = 'block';
-        contentDiv.style.display = 'none';
-
-        try {
-            // Simulate progress updates
-            this.updateProgress(progressBar, 20);
-            
-            // Generate analytics data
-            const analytics = await this.generateChannelAnalytics();
-            this.updateProgress(progressBar, 60);
-            
-            // Generate sentiment and theme analytics
-            const sentimentData = await this.analyzeSentiment(analytics.allComments);
-            this.updateProgress(progressBar, 80);
-            
-            const themeData = await this.analyzeThemes(analytics.allComments);
-            this.updateProgress(progressBar, 100);
-            
-            // Update analytics tiles
-            document.getElementById('analyticsCommentsCount').textContent = this.formatNumber(analytics.totalComments);
-            document.getElementById('analyticsLikesCount').textContent = this.formatNumber(analytics.totalLikes);
-            document.getElementById('analyticsUniqueCommenters').textContent = this.formatNumber(analytics.uniqueCommenters);
-            document.getElementById('analyticsAvgLikes').textContent = this.formatNumber(analytics.avgLikes);
-            
-            // Update word clouds
-            this.renderWordCloud('mostLikedWords', analytics.mostLikedWords);
-            this.renderWordCloud('mostFrequentWords', analytics.mostFrequentWords);
-            
-            // Render sentiment and theme analytics
-            this.renderSentimentAnalysis(sentimentData);
-            this.renderThemesAnalysis(themeData);
-            
-            // Render themes with descriptions
-            this.renderThemesWithDescriptions(themeData);
-            
-            // Load all comments
-            this.currentChannelCommentPagination = { page: 1, limit: 50 };
-            this.channelCommentsFiltered = analytics.allComments;
-            this.renderChannelComments();
-            
-            // Initialize search results count to show total comments
-            const searchResultsElement = document.getElementById('commentSearchResults');
-            if (searchResultsElement) {
-                const totalComments = analytics.allComments.length;
-                searchResultsElement.textContent = `${totalComments.toLocaleString()} comment${totalComments !== 1 ? 's' : ''} found`;
-            }
-            
-            // Hide loading and show content
-            setTimeout(() => {
-                loadingDiv.style.display = 'none';
-                contentDiv.style.display = 'block';
-            }, 500);
-            
-            // Set up modal event listeners
-            this.setupAnalyticsEventListeners();
-            
-        } catch (error) {
-            console.error('Failed to show analytics:', error);
-            loadingDiv.innerHTML = `
-                <div class="text-center py-5">
-                    <i class="bi bi-exclamation-triangle text-warning" style="font-size: 3rem;"></i>
-                    <h5 class="mt-3">Unable to Generate Analytics</h5>
-                    <p class="text-muted">Failed to analyze comment data. Please try again.</p>
-                </div>
-            `;
-        }
     }
 
     /**
@@ -3534,23 +3664,11 @@ class ArchiveExplorer {
         document.getElementById('avgKeywordsPerVideo').textContent = data.summary.avgKeywordsPerVideo;
         document.getElementById('topKeywordFreq').textContent = data.summary.topKeywordFreq;
 
-        // Word cloud
-        this.generateWordCloud(data.topByFrequency);
-
-        // Top keywords list
-        this.populateKeywordList('topKeywordsList', data.topByFrequency.slice(0, 40), 'frequency');
-
-        // Performance keywords list
-        this.populateKeywordList('performingKeywordsList', data.topByPerformance.slice(0, 40), 'performance');
-
-        // High-Impact keywords list
-        this.populateKeywordList('highImpactKeywordsList', data.highImpactKeywords.slice(0, 40), 'impact');
-
-        // Categories
-        this.populateCategories(data.categories);
-
-        // Insights
-        this.populateInsights(data.insights);
+        // Top keywords list - only populate what exists in HTML
+        const topKeywordsList = document.getElementById('topKeywordsList');
+        if (topKeywordsList) {
+            this.populateKeywordList('topKeywordsList', data.topByFrequency.slice(0, 20), 'frequency');
+        }
     }
 
     /**
@@ -3591,11 +3709,16 @@ class ArchiveExplorer {
      */
     populateKeywordList(containerId, keywords, type) {
         const container = document.getElementById(containerId);
+        if (!container) {
+            console.warn(`Container ${containerId} not found`);
+            return;
+        }
         container.innerHTML = '';
 
         keywords.forEach((item, index) => {
             const listItem = document.createElement('div');
-            listItem.className = 'keyword-item';
+            listItem.className = 'd-flex justify-content-between align-items-center p-2 border-bottom';
+            listItem.style.cursor = 'pointer';
             listItem.onclick = () => this.filterByKeyword(item.keyword);
 
             let metric;
@@ -3608,9 +3731,12 @@ class ArchiveExplorer {
             }
 
             listItem.innerHTML = `
-                <div class="keyword-name">${index + 1}. ${item.name}</div>
+                <div class="keyword-name">
+                    <span class="text-muted me-2">${index + 1}.</span>
+                    <strong class="text-dark">${item.name}</strong>
+                </div>
                 <div class="keyword-stats">
-                    <span class="keyword-count">${metric}</span>
+                    <span class="badge bg-danger">${metric}</span>
                 </div>
             `;
             container.appendChild(listItem);

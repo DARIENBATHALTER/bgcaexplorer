@@ -39,9 +39,139 @@ class DataManager {
             this.buildVideoMapping();
             progressCallback?.('Video mapping built', 60);
 
-            // Set up basic comment structure (will be loaded on-demand)
+            // Load all comments for statistics
+            progressCallback?.('Loading comments data...', 65);
             this.comments = [];
-            progressCallback?.('Comments will be loaded on-demand', 70);
+            
+            // Try loading from user's directory first
+            if (this.archiveLoader.directoryHandle) {
+                try {
+                    // Try loading from bgca_yt_comments directory (individual files)
+                    const commentsDir = await this.archiveLoader.directoryHandle.getDirectoryHandle('bgca_yt_comments');
+                    
+                    // Get all files in the comments directory
+                    for await (const [name, handle] of commentsDir.entries()) {
+                        if (handle.kind === 'file' && (name.endsWith('.json') || name.endsWith('.txt'))) {
+                            try {
+                                const file = await handle.getFile();
+                                const fileContent = await file.text();
+                                const commentsData = JSON.parse(fileContent);
+                                
+                                // Extract shortcode from filename
+                                const shortcode = this.archiveLoader.extractShortcode(name);
+                                
+                                // Handle different comment file formats
+                                let rawComments = [];
+                                if (Array.isArray(commentsData)) {
+                                    rawComments = commentsData;
+                                } else if (commentsData[shortcode]) {
+                                    rawComments = commentsData[shortcode];
+                                } else if (commentsData.comments) {
+                                    rawComments = commentsData.comments;
+                                }
+                                
+                                if (Array.isArray(rawComments)) {
+                                    rawComments.forEach(comment => {
+                                        this.comments.push({
+                                            ...comment,
+                                            video_id: shortcode,
+                                            published_at: comment.published_at ? new Date(comment.published_at) : new Date(),
+                                            like_count: parseInt(comment.like_count || comment.likes) || 0,
+                                            is_reply: Boolean(comment.is_reply || comment.parent)
+                                        });
+                                    });
+                                }
+                            } catch (error) {
+                                console.warn(`Failed to parse comment file ${name}:`, error);
+                            }
+                        }
+                    }
+                    console.log(`📊 Loaded ${this.comments.length} comments from user's bgca_yt_comments folder`);
+                } catch (e) {
+                    console.log('📁 No bgca_yt_comments folder, trying root folder...');
+                    
+                    try {
+                        // Fallback: try root of archive folder (comments.json)
+                        const commentsFile = await this.archiveLoader.directoryHandle.getFileHandle('comments.json');
+                        const file = await commentsFile.getFile();
+                        const allCommentsData = JSON.parse(await file.text());
+                        
+                        // Flatten all comments into a single array
+                        this.comments = [];
+                        Object.entries(allCommentsData).forEach(([videoId, videoComments]) => {
+                            if (Array.isArray(videoComments)) {
+                                videoComments.forEach(comment => {
+                                    this.comments.push({
+                                        ...comment,
+                                        video_id: videoId,
+                                        published_at: comment.published_at ? new Date(comment.published_at) : new Date(),
+                                        like_count: parseInt(comment.like_count) || 0,
+                                        is_reply: Boolean(comment.is_reply)
+                                    });
+                                });
+                            }
+                        });
+                        console.log(`📊 Loaded ${this.comments.length} comments from user's archive root`);
+                    } catch (e2) {
+                        console.log('📁 No comments.json in archive root, trying explorer_data folder...');
+                        
+                        try {
+                            const explorerDataDir = await this.archiveLoader.directoryHandle.getDirectoryHandle('bgca_yt_explorer_data');
+                            const commentsFile = await explorerDataDir.getFileHandle('comments.json');
+                            const file = await commentsFile.getFile();
+                            const allCommentsData = JSON.parse(await file.text());
+                            
+                            // Flatten all comments into a single array
+                            this.comments = [];
+                            Object.entries(allCommentsData).forEach(([videoId, videoComments]) => {
+                                if (Array.isArray(videoComments)) {
+                                    videoComments.forEach(comment => {
+                                        this.comments.push({
+                                            ...comment,
+                                            video_id: videoId,
+                                            published_at: comment.published_at ? new Date(comment.published_at) : new Date(),
+                                            like_count: parseInt(comment.like_count) || 0,
+                                            is_reply: Boolean(comment.is_reply)
+                                        });
+                                    });
+                                }
+                            });
+                            console.log(`📊 Loaded ${this.comments.length} comments from user's explorer_data folder`);
+                        } catch (e3) {
+                            console.log('📁 No comments in explorer_data folder, trying fallback...');
+                        }
+                    }
+                }
+            }
+                
+            // Fallback to included data if no comments loaded
+            if (this.comments.length === 0) {
+                    try {
+                        const response = await fetch('./data/comments.json');
+                        if (response.ok) {
+                            const allCommentsData = await response.json();
+                            this.comments = [];
+                            Object.entries(allCommentsData).forEach(([videoId, videoComments]) => {
+                                if (Array.isArray(videoComments)) {
+                                    videoComments.forEach(comment => {
+                                        this.comments.push({
+                                            ...comment,
+                                            video_id: videoId,
+                                            published_at: comment.published_at ? new Date(comment.published_at) : new Date(),
+                                            like_count: parseInt(comment.like_count) || 0,
+                                            is_reply: Boolean(comment.is_reply)
+                                        });
+                                    });
+                                }
+                            });
+                            console.log(`📊 Loaded ${this.comments.length} comments from included data`);
+                        }
+                    } catch (e) {
+                        console.warn('Failed to load comments data:', e);
+                        this.comments = [];
+                    }
+            }
+            progressCallback?.(`Loaded ${this.comments.length} comments`, 70);
 
             // Skip IndexedDB setup for now - we're using direct archive access
             progressCallback?.('Archive data ready - using direct access', 90);
@@ -689,6 +819,13 @@ class DataManager {
      * Get video file path if available
      */
     getVideoFilePath(videoId) {
+        // For File System Access API, return a special indicator
+        // The actual file access will be handled by the archive loader
+        if (this.archiveLoader && this.archiveLoader.directoryHandle) {
+            return `filesystem:${videoId}`;
+        }
+        
+        // Fallback to traditional mapping
         const mapping = this.videoMapping[videoId];
         if (mapping) {
             // Handle string paths, arrays of paths, and object format
@@ -701,6 +838,16 @@ class DataManager {
             }
         }
         return null;
+    }
+
+    /**
+     * Get video file handle for File System Access API
+     */
+    async getVideoFileHandle(videoId) {
+        if (this.archiveLoader && this.archiveLoader.directoryHandle) {
+            return await this.archiveLoader.getVideoFileHandle(videoId);
+        }
+        throw new Error('No File System Access API available');
     }
 
     /**

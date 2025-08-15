@@ -251,12 +251,24 @@ class VideoPlayer {
                 console.log(`🔍 DEBUG - getVideoFilePath returned: ${localPath}`);
                 
                 if (localPath) {
-                    console.log(`🎥 Attempting to load local video: ${localPath}`);
-                    try {
-                        await this.loadLocalVideo(localPath, videoData);
-                    } catch (error) {
-                        console.log(`🔗 Local video failed to load, showing YouTube fallback`);
-                        this.showYouTubeFallback(videoData, dataManager);
+                    if (localPath.startsWith('filesystem:')) {
+                        // Handle File System Access API
+                        console.log(`🎥 Attempting to load video via File System Access API`);
+                        try {
+                            await this.loadLocalVideoFSA(videoData, dataManager);
+                        } catch (error) {
+                            console.log(`🔗 File System Access failed, showing YouTube fallback`);
+                            this.showYouTubeFallback(videoData, dataManager);
+                        }
+                    } else {
+                        // Handle traditional file path
+                        console.log(`🎥 Attempting to load local video: ${localPath}`);
+                        try {
+                            await this.loadLocalVideo(localPath, videoData);
+                        } catch (error) {
+                            console.log(`🔗 Local video failed to load, showing YouTube fallback`);
+                            this.showYouTubeFallback(videoData, dataManager);
+                        }
                     }
                 } else {
                     console.log(`🔗 No local video mapping found, showing YouTube fallback`);
@@ -434,6 +446,84 @@ class VideoPlayer {
 
             // Load the video
             this.videoElement.load();
+        });
+    }
+
+    /**
+     * Load local video using File System Access API
+     */
+    async loadLocalVideoFSA(videoData, dataManager) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                console.log(`🎬 Loading video via File System Access API: ${videoData.video_id}`);
+                
+                // Get file handle from data manager
+                const fileHandle = await dataManager.getVideoFileHandle(videoData.video_id);
+                const file = await fileHandle.getFile();
+                
+                // Create blob URL for the video file
+                const blobUrl = URL.createObjectURL(file);
+                console.log(`🎬 Created blob URL for video: ${fileHandle.name}`);
+                
+                // Handle successful load
+                const handleCanPlay = () => {
+                    clearTimeout(loadTimeout);
+                    this.videoElement.removeEventListener('canplay', handleCanPlay);
+                    this.videoElement.removeEventListener('error', handleError);
+                    this.videoElement.removeEventListener('loadstart', handleLoadStart);
+                    console.log(`✅ File System Access video loaded successfully: ${fileHandle.name}`);
+                    this.currentPlayerType = 'local';
+                    this.showVideo();
+                    resolve();
+                };
+
+                // Handle load error
+                const handleError = (e) => {
+                    clearTimeout(loadTimeout);
+                    this.videoElement.removeEventListener('canplay', handleCanPlay);
+                    this.videoElement.removeEventListener('error', handleError);
+                    this.videoElement.removeEventListener('loadstart', handleLoadStart);
+                    URL.revokeObjectURL(blobUrl); // Clean up blob URL
+                    console.error(`🚨 File System Access video error:`, e);
+                    reject(new Error(`Failed to load video: ${e.type}`));
+                };
+
+                // Handle load start
+                const handleLoadStart = () => {
+                    console.log(`🎯 File System Access video load started: ${fileHandle.name}`);
+                };
+
+                this.videoElement.addEventListener('canplay', handleCanPlay);
+                this.videoElement.addEventListener('error', handleError);
+                this.videoElement.addEventListener('loadstart', handleLoadStart);
+
+                // Show local video element and controls
+                this.videoElement.style.display = 'block';
+                this.customControls.style.display = 'flex';
+                this.hideYouTubeEmbed();
+                
+                // Set video source to blob URL
+                this.videoElement.src = blobUrl;
+                
+                // Set poster if available
+                this.setVideoPoster(videoData.video_id);
+
+                // Add timeout for loading
+                const loadTimeout = setTimeout(() => {
+                    this.videoElement.removeEventListener('canplay', handleCanPlay);
+                    this.videoElement.removeEventListener('error', handleError);
+                    this.videoElement.removeEventListener('loadstart', handleLoadStart);
+                    URL.revokeObjectURL(blobUrl); // Clean up blob URL
+                    reject(new Error('Video load timeout'));
+                }, 30000);
+
+                // Load the video
+                this.videoElement.load();
+                
+            } catch (error) {
+                console.error('🚨 Failed to get video file handle:', error);
+                reject(error);
+            }
         });
     }
 

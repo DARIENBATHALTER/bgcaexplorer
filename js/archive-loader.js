@@ -119,19 +119,63 @@ class ArchiveLoader {
 
         console.log(`📊 Building discovery structure for ${metadata.length} videos`);
 
-        // Load data from existing JSON files instead of file discovery
+        // Load data from user directory or fallback to included files
+        let transcripts = {};
+        let summaries = {};
+        let comments = {};
+        
         try {
-            // Load transcripts index
-            const transcriptsResponse = await fetch(`${this.archivePath}/transcripts.json`);
-            const transcripts = transcriptsResponse.ok ? await transcriptsResponse.json() : {};
-
-            // Load summaries index  
-            const summariesResponse = await fetch(`${this.archivePath}/summaries.json`);
-            const summaries = summariesResponse.ok ? await summariesResponse.json() : {};
-
-            // Load comments index
-            const commentsResponse = await fetch(`${this.archivePath}/comments.json`);
-            const comments = commentsResponse.ok ? await commentsResponse.json() : {};
+            // Try loading from user's directory first
+            if (this.directoryHandle) {
+                try {
+                    const explorerDataDir = await this.directoryHandle.getDirectoryHandle('bgca_yt_explorer_data');
+                    
+                    try {
+                        const transcriptsFile = await explorerDataDir.getFileHandle('transcripts.json');
+                        const file = await transcriptsFile.getFile();
+                        transcripts = JSON.parse(await file.text());
+                        console.log('📁 Loaded transcripts from user directory');
+                    } catch (e) { /* ignore */ }
+                    
+                    try {
+                        const summariesFile = await explorerDataDir.getFileHandle('summaries.json');
+                        const file = await summariesFile.getFile();
+                        summaries = JSON.parse(await file.text());
+                        console.log('📁 Loaded summaries from user directory');
+                    } catch (e) { /* ignore */ }
+                    
+                    try {
+                        const commentsFile = await explorerDataDir.getFileHandle('comments.json');
+                        const file = await commentsFile.getFile();
+                        comments = JSON.parse(await file.text());
+                        console.log('📁 Loaded comments from user directory');
+                    } catch (e) { /* ignore */ }
+                } catch (error) {
+                    console.log('📁 No explorer_data folder in user directory, using fallback...');
+                }
+            }
+            
+            // Fallback to included data if user directory didn't have files
+            if (Object.keys(transcripts).length === 0) {
+                try {
+                    const response = await fetch('./data/transcripts.json');
+                    if (response.ok) transcripts = await response.json();
+                } catch (e) { /* ignore */ }
+            }
+            
+            if (Object.keys(summaries).length === 0) {
+                try {
+                    const response = await fetch('./data/summaries.json');
+                    if (response.ok) summaries = await response.json();
+                } catch (e) { /* ignore */ }
+            }
+            
+            if (Object.keys(comments).length === 0) {
+                try {
+                    const response = await fetch('./data/comments.json');
+                    if (response.ok) comments = await response.json();
+                } catch (e) { /* ignore */ }
+            }
 
             console.log(`📊 Loaded data: ${Object.keys(transcripts).length} transcripts, ${Object.keys(summaries).length} summaries, ${Object.keys(comments).length} comments`);
 
@@ -195,19 +239,20 @@ class ArchiveLoader {
             return this.cache.get('metadata');
         }
 
-        // Try to load from user's selected directory first
+        // Try to load from user's selected bgca_yt_archive directory first
         if (this.directoryHandle) {
             try {
+                // The user selects the bgca_yt_archive folder, so bgca_yt_metadata.json is at the root
                 const metadataFile = await this.directoryHandle.getFileHandle('bgca_yt_metadata.json');
                 const file = await metadataFile.getFile();
                 const data = JSON.parse(await file.text());
                 const metadata = Array.isArray(data) ? data : Object.values(data);
                 
                 this.cache.set('metadata', metadata);
-                console.log(`📊 Loaded ${metadata.length} videos from user directory metadata`);
+                console.log(`📊 Loaded ${metadata.length} videos from user's bgca_yt_archive folder`);
                 return metadata;
             } catch (error) {
-                console.log('📁 No metadata in user directory, trying explorer_data folder...');
+                console.log('📁 No bgca_yt_metadata.json in user archive folder, trying explorer_data folder...');
                 
                 try {
                     const explorerDataDir = await this.directoryHandle.getDirectoryHandle('bgca_yt_explorer_data');
@@ -294,7 +339,36 @@ class ArchiveLoader {
         }
 
         try {
-            const response = await fetch(`${this.archivePath}/bgca_yt_keywords.json`);
+            // Try loading from user's bgca_yt_archive directory first
+            if (this.directoryHandle) {
+                try {
+                    // The user selects the bgca_yt_archive folder, so bgca_yt_keywords.json is at the root
+                    const keywordsFile = await this.directoryHandle.getFileHandle('bgca_yt_keywords.json');
+                    const file = await keywordsFile.getFile();
+                    const rawKeywords = JSON.parse(await file.text());
+                    
+                    // Convert to shortcode-based mapping
+                    const keywordsByShortcode = {};
+                    for (const [filename, keywords] of Object.entries(rawKeywords)) {
+                        const shortcode = this.extractShortcode(filename);
+                        if (shortcode && keywords) {
+                            keywordsByShortcode[shortcode] = {
+                                video_id: shortcode,
+                                keywords: keywords
+                            };
+                        }
+                    }
+                    
+                    this.cache.set('keywords', keywordsByShortcode);
+                    console.log(`📑 Loaded keywords from user's bgca_yt_archive folder`);
+                    return keywordsByShortcode;
+                } catch (e) {
+                    console.log(`📁 No bgca_yt_keywords.json in user's archive folder, trying fallback...`);
+                }
+            }
+            
+            // Fallback to included data
+            const response = await fetch('./data/keywords.json');
             if (!response.ok) {
                 throw new Error(`Failed to load keywords: ${response.status}`);
             }
@@ -329,26 +403,61 @@ class ArchiveLoader {
             return this.cache.get(cacheKey);
         }
 
-        // Try loading from user's directory first
+        // Try loading from user's archive directory first
         if (this.directoryHandle) {
             try {
-                const explorerDataDir = await this.directoryHandle.getDirectoryHandle('bgca_yt_explorer_data');
-                const transcriptsFile = await explorerDataDir.getFileHandle('transcripts.json');
-                const file = await transcriptsFile.getFile();
-                const transcripts = JSON.parse(await file.text());
+                // Try loading from bgca_yt_subtitles directory (individual files)
+                const subtitlesDir = await this.directoryHandle.getDirectoryHandle('bgca_yt_subtitles');
                 
-                if (transcripts[shortcode]) {
-                    const transcript = {
-                        video_id: shortcode,
-                        transcript: transcripts[shortcode],
-                        source_file: 'user_directory/transcripts.json'
-                    };
-                    this.cache.set(cacheKey, transcript);
-                    console.log(`✅ Loaded transcript from user directory: ${shortcode}`);
-                    return transcript;
+                // Try different file patterns for transcript files
+                const patterns = [
+                    `${shortcode}_en_auto_ytdlp.txt`,
+                    `${shortcode}.txt`,
+                    `${shortcode}_en.txt`,
+                    `${shortcode}_transcript.txt`
+                ];
+                
+                for (const pattern of patterns) {
+                    try {
+                        const transcriptFile = await subtitlesDir.getFileHandle(pattern);
+                        const file = await transcriptFile.getFile();
+                        const transcriptText = await file.text();
+                        
+                        const transcript = {
+                            video_id: shortcode,
+                            transcript: transcriptText,
+                            source_file: `bgca_yt_subtitles/${pattern}`
+                        };
+                        this.cache.set(cacheKey, transcript);
+                        console.log(`✅ Loaded transcript from user's archive: ${pattern}`);
+                        return transcript;
+                    } catch (e) {
+                        // Try next pattern
+                    }
                 }
             } catch (error) {
-                console.log(`📁 No transcript in user directory for ${shortcode}, trying fallback...`);
+                console.log(`📁 No bgca_yt_subtitles folder or transcript files, trying explorer_data...`);
+                
+                // Fallback to explorer_data folder
+                try {
+                    const explorerDataDir = await this.directoryHandle.getDirectoryHandle('bgca_yt_explorer_data');
+                    const transcriptsFile = await explorerDataDir.getFileHandle('transcripts.json');
+                    const file = await transcriptsFile.getFile();
+                    const transcripts = JSON.parse(await file.text());
+                    
+                    if (transcripts[shortcode]) {
+                        const transcript = {
+                            video_id: shortcode,
+                            transcript: transcripts[shortcode],
+                            source_file: 'bgca_yt_explorer_data/transcripts.json'
+                        };
+                        this.cache.set(cacheKey, transcript);
+                        console.log(`✅ Loaded transcript from explorer_data: ${shortcode}`);
+                        return transcript;
+                    }
+                } catch (e2) {
+                    console.log(`📁 No transcript in explorer_data for ${shortcode}, trying fallback...`);
+                }
             }
         }
 
@@ -386,8 +495,85 @@ class ArchiveLoader {
         }
 
         try {
-            // Load from summaries.json
-            const response = await fetch(`${this.archivePath}/summaries.json`);
+            // Try loading from user's archive directory first
+            if (this.directoryHandle) {
+                try {
+                    // Try loading from bgca_yt_summaries directory (individual files)
+                    const summariesDir = await this.directoryHandle.getDirectoryHandle('bgca_yt_summaries');
+                    
+                    // Try different file patterns for summary files
+                    const patterns = [
+                        `${shortcode}_summary.txt`,
+                        `${shortcode}.txt`,
+                        `${shortcode}_summary.json`,
+                        `${shortcode}.json`
+                    ];
+                    
+                    for (const pattern of patterns) {
+                        try {
+                            const summaryFile = await summariesDir.getFileHandle(pattern);
+                            const file = await summaryFile.getFile();
+                            const summaryText = await file.text();
+                            
+                            const summary = {
+                                video_id: shortcode,
+                                summary: summaryText,
+                                source_file: `bgca_yt_summaries/${pattern}`
+                            };
+                            this.cache.set(cacheKey, summary);
+                            console.log(`✅ Loaded summary from user's archive: ${pattern}`);
+                            return summary;
+                        } catch (e) {
+                            // Try next pattern
+                        }
+                    }
+                } catch (error) {
+                    console.log(`📁 No bgca_yt_summaries folder or summary files, trying root folder...`);
+                    
+                    // Try root of archive folder for summaries.json
+                    try {
+                        const summariesFile = await this.directoryHandle.getFileHandle('summaries.json');
+                        const file = await summariesFile.getFile();
+                        const summaries = JSON.parse(await file.text());
+                        
+                        if (summaries[shortcode]) {
+                            const summary = {
+                                video_id: shortcode,
+                                summary: summaries[shortcode],
+                                source_file: 'summaries.json'
+                            };
+                            this.cache.set(cacheKey, summary);
+                            console.log(`✅ Loaded summary from archive root: ${shortcode}`);
+                            return summary;
+                        }
+                    } catch (e2) {
+                        console.log(`📁 No summaries.json in archive root, trying explorer_data folder...`);
+                    
+                    try {
+                        const explorerDataDir = await this.directoryHandle.getDirectoryHandle('bgca_yt_explorer_data');
+                        const summariesFile = await explorerDataDir.getFileHandle('summaries.json');
+                        const file = await summariesFile.getFile();
+                        const summaries = JSON.parse(await file.text());
+                        
+                        if (summaries[shortcode]) {
+                            const summary = {
+                                video_id: shortcode,
+                                summary: summaries[shortcode],
+                                source_file: 'user_directory/bgca_yt_explorer_data/summaries.json'
+                            };
+                            this.cache.set(cacheKey, summary);
+                            console.log(`✅ Loaded summary from explorer_data folder: ${shortcode}`);
+                            return summary;
+                        }
+                    } catch (e2) {
+                        console.log(`📁 No summary in explorer_data folder for ${shortcode}, trying fallback...`);
+                    }
+                    }
+                }
+            }
+            
+            // Fallback to included data
+            const response = await fetch('./data/summaries.json');
             if (response.ok) {
                 const summaries = await response.json();
                 if (summaries[shortcode]) {
@@ -418,9 +604,126 @@ class ArchiveLoader {
             return this.cache.get(cacheKey);
         }
 
+        // Try loading from user's archive directory first
+        if (this.directoryHandle) {
+            try {
+                // Try loading from bgca_yt_comments directory (individual files)
+                const commentsDir = await this.directoryHandle.getDirectoryHandle('bgca_yt_comments');
+                
+                // Try different file patterns for comment files
+                const patterns = [
+                    `${shortcode}_comments.json`,
+                    `${shortcode}.json`,
+                    `${shortcode}_comments.txt`,
+                    `${shortcode}.txt`
+                ];
+                
+                for (const pattern of patterns) {
+                    try {
+                        const commentsFile = await commentsDir.getFileHandle(pattern);
+                        const file = await commentsFile.getFile();
+                        const fileContent = await file.text();
+                        
+                        let commentsData;
+                        try {
+                            commentsData = JSON.parse(fileContent);
+                        } catch (e) {
+                            // If not JSON, treat as plain text (shouldn't happen for comments usually)
+                            console.warn(`Comment file ${pattern} is not valid JSON, skipping...`);
+                            continue;
+                        }
+                        
+                        // Handle different comment file formats
+                        let rawComments = [];
+                        if (Array.isArray(commentsData)) {
+                            rawComments = commentsData;
+                        } else if (commentsData[shortcode]) {
+                            rawComments = commentsData[shortcode];
+                        } else if (commentsData.comments) {
+                            rawComments = commentsData.comments;
+                        }
+                        
+                        const comments = Array.isArray(rawComments) ? rawComments.map((comment, index) => ({
+                            comment_id: comment.comment_id || comment.id || `${shortcode}_comment_${index}`,
+                            video_id: shortcode,
+                            author: comment.author || 'Unknown',
+                            text: comment.text || comment.content || '',
+                            like_count: parseInt(comment.like_count || comment.likes) || 0,
+                            published_at: comment.published_at ? new Date(comment.published_at) : new Date(),
+                            is_reply: Boolean(comment.is_reply || comment.parent),
+                            parent_comment_id: comment.parent_comment_id || comment.parent || null
+                        })) : [];
+                        
+                        this.cache.set(cacheKey, comments);
+                        console.log(`✅ Loaded comments from user's archive: ${pattern} (${comments.length} comments)`);
+                        return comments;
+                    } catch (e) {
+                        // Try next pattern
+                    }
+                }
+            } catch (error) {
+                console.log(`📁 No bgca_yt_comments folder or comment files, trying root folder...`);
+            }
+            
+            // Try root of archive folder for comments.json
+            try {
+                const commentsFile = await this.directoryHandle.getFileHandle('comments.json');
+                const file = await commentsFile.getFile();
+                const commentsData = JSON.parse(await file.text());
+                
+                if (commentsData[shortcode]) {
+                    const rawComments = commentsData[shortcode];
+                    const comments = Array.isArray(rawComments) ? rawComments.map((comment, index) => ({
+                        comment_id: comment.comment_id || comment.id || `${shortcode}_comment_${index}`,
+                        video_id: shortcode,
+                        author: comment.author || 'Unknown',
+                        text: comment.text || '',
+                        like_count: parseInt(comment.like_count) || 0,
+                        published_at: comment.published_at ? new Date(comment.published_at) : new Date(),
+                        is_reply: Boolean(comment.is_reply),
+                        parent_comment_id: comment.parent_comment_id || comment.parent || null
+                    })) : [];
+                    
+                    this.cache.set(cacheKey, comments);
+                    console.log(`✅ Loaded comments from archive root: ${shortcode} (${comments.length} comments)`);
+                    return comments;
+                }
+            } catch (e2) {
+                console.log(`📁 No comments.json in archive root, trying explorer_data folder...`);
+            }
+            
+            // Try explorer_data folder
+            try {
+                const explorerDataDir = await this.directoryHandle.getDirectoryHandle('bgca_yt_explorer_data');
+                const commentsFile = await explorerDataDir.getFileHandle('comments.json');
+                const file = await commentsFile.getFile();
+                const commentsData = JSON.parse(await file.text());
+                
+                if (commentsData[shortcode]) {
+                    const rawComments = commentsData[shortcode];
+                    const comments = Array.isArray(rawComments) ? rawComments.map((comment, index) => ({
+                        comment_id: comment.comment_id || comment.id || `${shortcode}_comment_${index}`,
+                        video_id: shortcode,
+                        author: comment.author || 'Unknown',
+                        text: comment.text || '',
+                        like_count: parseInt(comment.like_count) || 0,
+                        published_at: comment.published_at ? new Date(comment.published_at) : new Date(),
+                        is_reply: Boolean(comment.is_reply),
+                        parent_comment_id: comment.parent_comment_id || comment.parent || null
+                    })) : [];
+                    
+                    this.cache.set(cacheKey, comments);
+                    console.log(`✅ Loaded comments from explorer_data folder: ${shortcode} (${comments.length} comments)`);
+                    return comments;
+                }
+            } catch (e3) {
+                console.log(`📁 No comments in explorer_data folder for ${shortcode}, trying fallback...`);
+            }
+        }
+            
+        // Fallback: Load from included data
         try {
-            // Load from comments.json
-            const response = await fetch(`${this.archivePath}/comments.json`);
+            const response = await fetch('./data/comments.json');
             if (response.ok) {
                 const commentsData = await response.json();
                 if (commentsData[shortcode]) {
@@ -452,12 +755,49 @@ class ArchiveLoader {
     }
 
     /**
-     * Get video file path by shortcode
+     * Get video file path by shortcode (for File System Access API)
      */
     getVideoPath(shortcode) {
-        // Since we can't easily browse directories from client-side,
-        // we'll construct the expected path pattern
-        return `${this.archivePath}/bgca_yt_media/${shortcode}_youtube_video.mp4`;
+        // Return a relative path for File System Access API
+        // The actual file access will be handled by the video player using directoryHandle
+        return `bgca_yt_media/${shortcode}_youtube_video.mp4`;
+    }
+
+    /**
+     * Get video file handle for File System Access API
+     */
+    async getVideoFileHandle(shortcode) {
+        if (!this.directoryHandle) {
+            throw new Error('No directory handle available');
+        }
+
+        try {
+            // Try to get the video file from the media directory
+            const mediaDir = await this.directoryHandle.getDirectoryHandle('bgca_yt_media');
+            
+            // Try different naming patterns
+            const patterns = [
+                `${shortcode}_youtube_video.mp4`,
+                `${shortcode}.mp4`,
+                // Add date prefix patterns if needed
+                `20250626_${shortcode}_youtube video #${shortcode}.mp4`
+            ];
+
+            for (const pattern of patterns) {
+                try {
+                    const fileHandle = await mediaDir.getFileHandle(pattern);
+                    console.log(`🎬 Found video file: ${pattern}`);
+                    return fileHandle;
+                } catch (e) {
+                    // Try next pattern
+                }
+            }
+
+            throw new Error(`Video file not found for ${shortcode}`);
+        } catch (error) {
+            console.warn(`Failed to get video file handle for ${shortcode}:`, error);
+            throw error;
+        }
     }
 
     /**
@@ -494,13 +834,9 @@ class ArchiveLoader {
                 );
             }
 
-            // Try to load additional metadata from .info.json file
+            // Skip trying to load .info.json files since we're using included data
+            // These files don't exist on the server and cause 404 errors
             let infoData = null;
-            try {
-                infoData = await this.loadVideoInfoFile(shortcode, metadataEntry?.published_at);
-            } catch (error) {
-                console.warn(`Could not load info file for ${shortcode}:`, error);
-            }
 
             // Use data from .info.json if available, otherwise fall back to metadata.json
             const title = metadataEntry?.title || infoData?.title || `BGCA Video ${shortcode}`;
@@ -616,3 +952,6 @@ class ArchiveLoader {
 
 // Export for use in other modules
 window.ArchiveLoader = ArchiveLoader;
+
+// Force cache refresh
+console.log('📦 ArchiveLoader class loaded successfully');
