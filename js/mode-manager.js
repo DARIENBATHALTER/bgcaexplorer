@@ -55,6 +55,12 @@ class ModeManager {
                 // Request directory access
                 await this.directoryManager.requestDirectory();
                 
+                // Pass directory handle to data manager's archive loader
+                if (window.app && window.app.dataManager && window.app.dataManager.archiveLoader) {
+                    window.app.dataManager.archiveLoader.setDirectoryHandle(this.directoryManager.directoryHandle);
+                    console.log('🎛️ Directory handle passed to archive loader');
+                }
+                
                 // Scan directory for files
                 const scanResult = await this.directoryManager.scanDirectory();
                 

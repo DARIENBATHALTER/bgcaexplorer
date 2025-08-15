@@ -5,11 +5,22 @@
 
 class ArchiveLoader {
     constructor() {
-        this.archivePath = './data'; // Use local data directory instead
+        this.archivePath = '../bgca_yt_archive'; // Will be updated when user selects directory
         this.apiPath = './api/archive-api.php';
         this.cache = new Map();
         this.shortcodeRegex = /([a-zA-Z0-9_-]{11})/g;
         this.fileDiscovery = null;
+        this.directoryHandle = null; // Store the directory handle from File System Access API
+    }
+
+    /**
+     * Set directory handle for File System Access API
+     */
+    setDirectoryHandle(directoryHandle) {
+        this.directoryHandle = directoryHandle;
+        if (directoryHandle) {
+            console.log(`📁 Archive loader updated to use directory: ${directoryHandle.name}`);
+        }
     }
 
     /**
@@ -149,6 +160,7 @@ class ArchiveLoader {
                     
                     // Assume video files follow standard pattern
                     discovery.videos[shortcode] = `${shortcode}.mp4`;
+                }
             });
 
             const totals = {
@@ -176,26 +188,54 @@ class ArchiveLoader {
     }
 
     /**
-     * Load video metadata from available data files
+     * Load video metadata from user's directory or fallback to local data
      */
     async loadVideoMetadata() {
         if (this.cache.has('metadata')) {
             return this.cache.get('metadata');
         }
 
+        // Try to load from user's selected directory first
+        if (this.directoryHandle) {
+            try {
+                const metadataFile = await this.directoryHandle.getFileHandle('bgca_yt_metadata.json');
+                const file = await metadataFile.getFile();
+                const data = JSON.parse(await file.text());
+                const metadata = Array.isArray(data) ? data : Object.values(data);
+                
+                this.cache.set('metadata', metadata);
+                console.log(`📊 Loaded ${metadata.length} videos from user directory metadata`);
+                return metadata;
+            } catch (error) {
+                console.log('📁 No metadata in user directory, trying explorer_data folder...');
+                
+                try {
+                    const explorerDataDir = await this.directoryHandle.getDirectoryHandle('bgca_yt_explorer_data');
+                    const videosFile = await explorerDataDir.getFileHandle('videos.json');
+                    const file = await videosFile.getFile();
+                    const data = JSON.parse(await file.text());
+                    const metadata = Array.isArray(data) ? data : Object.values(data);
+                    
+                    this.cache.set('metadata', metadata);
+                    console.log(`📊 Loaded ${metadata.length} videos from user directory explorer_data`);
+                    return metadata;
+                } catch (explorerError) {
+                    console.log('📁 No explorer_data folder, falling back to included data...');
+                }
+            }
+        }
+
+        // Fallback: load from included data files
         try {
-            // First try to load from videos.json which we know exists
-            const response = await fetch(`${this.archivePath}/videos.json`);
+            const response = await fetch('./data/videos.json');
             if (!response.ok) {
-                throw new Error(`Failed to load metadata: ${response.status}`);
+                throw new Error(`Failed to load fallback metadata: ${response.status}`);
             }
             const data = await response.json();
-            
-            // Convert videos.json format to expected metadata format
             const metadata = Array.isArray(data) ? data : Object.values(data);
             
             this.cache.set('metadata', metadata);
-            console.log(`📊 Loaded ${metadata.length} videos from videos.json`);
+            console.log(`📊 Loaded ${metadata.length} videos from included data (fallback)`);
             return metadata;
         } catch (error) {
             console.error('Error loading video metadata:', error);
@@ -289,22 +329,47 @@ class ArchiveLoader {
             return this.cache.get(cacheKey);
         }
 
+        // Try loading from user's directory first
+        if (this.directoryHandle) {
+            try {
+                const explorerDataDir = await this.directoryHandle.getDirectoryHandle('bgca_yt_explorer_data');
+                const transcriptsFile = await explorerDataDir.getFileHandle('transcripts.json');
+                const file = await transcriptsFile.getFile();
+                const transcripts = JSON.parse(await file.text());
+                
+                if (transcripts[shortcode]) {
+                    const transcript = {
+                        video_id: shortcode,
+                        transcript: transcripts[shortcode],
+                        source_file: 'user_directory/transcripts.json'
+                    };
+                    this.cache.set(cacheKey, transcript);
+                    console.log(`✅ Loaded transcript from user directory: ${shortcode}`);
+                    return transcript;
+                }
+            } catch (error) {
+                console.log(`📁 No transcript in user directory for ${shortcode}, trying fallback...`);
+            }
+        }
+
+        // Fallback: load from included data
         try {
-            // Load from transcripts.json
-            const response = await fetch(`${this.archivePath}/transcripts.json`);
+            const response = await fetch('./data/transcripts.json');
             if (response.ok) {
                 const transcripts = await response.json();
                 if (transcripts[shortcode]) {
                     const transcript = {
                         video_id: shortcode,
                         transcript: transcripts[shortcode],
-                        source_file: 'transcripts.json'
+                        source_file: 'included_data/transcripts.json'
                     };
                     this.cache.set(cacheKey, transcript);
-                    console.log(`✅ Loaded transcript from JSON: ${shortcode}`);
+                    console.log(`✅ Loaded transcript from included data: ${shortcode}`);
                     return transcript;
                 }
             }
+        } catch (error) {
+            console.warn(`Failed to load transcript for ${shortcode}:`, error);
         }
         
         console.log(`📝 Transcript for ${shortcode} not available`);
