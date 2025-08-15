@@ -417,6 +417,27 @@ class ArchiveLoader {
                     `${shortcode}_transcript.txt`
                 ];
                 
+                // If direct patterns fail, try to find files with shortcode anywhere in filename
+                try {
+                    for await (const [name, handle] of subtitlesDir.entries()) {
+                        if (handle.kind === 'file' && name.includes(shortcode) && name.endsWith('_en_auto_ytdlp.txt')) {
+                            const file = await handle.getFile();
+                            const transcriptText = await file.text();
+                            
+                            const transcript = {
+                                video_id: shortcode,
+                                transcript: transcriptText,
+                                source_file: `bgca_yt_subtitles/${name}`
+                            };
+                            this.cache.set(cacheKey, transcript);
+                            console.log(`✅ Loaded transcript from user's archive (pattern match): ${name}`);
+                            return transcript;
+                        }
+                    }
+                } catch (iterError) {
+                    console.log(`📁 Could not iterate directory for pattern matching: ${iterError.message}`);
+                }
+                
                 for (const pattern of patterns) {
                     try {
                         const transcriptFile = await subtitlesDir.getFileHandle(pattern);
@@ -508,6 +529,27 @@ class ArchiveLoader {
                         `${shortcode}_summary.json`,
                         `${shortcode}.json`
                     ];
+                    
+                    // If direct patterns fail, try to find files with shortcode anywhere in filename
+                    try {
+                        for await (const [name, handle] of summariesDir.entries()) {
+                            if (handle.kind === 'file' && name.includes(shortcode) && name.includes('_summary')) {
+                                const file = await handle.getFile();
+                                const summaryText = await file.text();
+                                
+                                const summary = {
+                                    video_id: shortcode,
+                                    summary: summaryText,
+                                    source_file: `bgca_yt_summaries/${name}`
+                                };
+                                this.cache.set(cacheKey, summary);
+                                console.log(`✅ Loaded summary from user's archive (pattern match): ${name}`);
+                                return summary;
+                            }
+                        }
+                    } catch (iterError) {
+                        console.log(`📁 Could not iterate directory for pattern matching: ${iterError.message}`);
+                    }
                     
                     for (const pattern of patterns) {
                         try {
@@ -617,6 +659,51 @@ class ArchiveLoader {
                     `${shortcode}_comments.txt`,
                     `${shortcode}.txt`
                 ];
+                
+                // If direct patterns fail, try to find files with shortcode anywhere in filename
+                try {
+                    for await (const [name, handle] of commentsDir.entries()) {
+                        if (handle.kind === 'file' && name.includes(shortcode) && name.includes('_comments')) {
+                            const file = await handle.getFile();
+                            const fileContent = await file.text();
+                            
+                            let commentsData;
+                            try {
+                                commentsData = JSON.parse(fileContent);
+                            } catch (e) {
+                                console.warn(`Comment file ${name} is not valid JSON, skipping...`);
+                                continue;
+                            }
+                            
+                            // Handle different comment file formats
+                            let rawComments = [];
+                            if (Array.isArray(commentsData)) {
+                                rawComments = commentsData;
+                            } else if (commentsData[shortcode]) {
+                                rawComments = commentsData[shortcode];
+                            } else if (commentsData.comments) {
+                                rawComments = commentsData.comments;
+                            }
+                            
+                            const comments = Array.isArray(rawComments) ? rawComments.map((comment, index) => ({
+                                comment_id: comment.comment_id || comment.id || `${shortcode}_comment_${index}`,
+                                video_id: shortcode,
+                                author: comment.author || 'Unknown',
+                                text: comment.text || comment.content || '',
+                                like_count: parseInt(comment.like_count || comment.likes) || 0,
+                                published_at: comment.published_at ? new Date(comment.published_at) : new Date(),
+                                is_reply: Boolean(comment.is_reply || comment.parent),
+                                parent_comment_id: comment.parent_comment_id || comment.parent || null
+                            })) : [];
+                            
+                            this.cache.set(cacheKey, comments);
+                            console.log(`✅ Loaded comments from user's archive (pattern match): ${name} (${comments.length} comments)`);
+                            return comments;
+                        }
+                    }
+                } catch (iterError) {
+                    console.log(`📁 Could not iterate directory for pattern matching: ${iterError.message}`);
+                }
                 
                 for (const pattern of patterns) {
                     try {
@@ -775,13 +862,43 @@ class ArchiveLoader {
             // Try to get the video file from the media directory
             const mediaDir = await this.directoryHandle.getDirectoryHandle('bgca_yt_media');
             
-            // Try different naming patterns
-            const patterns = [
-                `${shortcode}_youtube_video.mp4`,
-                `${shortcode}.mp4`,
-                // Add date prefix patterns if needed
-                `20250626_${shortcode}_youtube video #${shortcode}.mp4`
-            ];
+            // Get video metadata to access title for filename patterns
+            const metadata = await this.loadVideoMetadata();
+            const videoData = metadata ? metadata.find(v => v.video_id === shortcode) : null;
+            const title = videoData ? videoData.title.replace(/[<>:"/\\|?*]/g, '').replace(/\s+/g, ' ').trim() : '';
+            
+            // Try different date prefixes and filename patterns (based on data-manager.js buildVideoMapping)
+            const datePrefixes = [
+                videoData && videoData.published_at ? new Date(videoData.published_at).toISOString().slice(0, 10).replace(/-/g, '') : null,
+                '20250626', // Recent date seen in actual files
+                '20080317'  // Default fallback
+            ].filter(Boolean);
+            
+            // Create multiple possible filenames to try
+            const patterns = [];
+            
+            datePrefixes.forEach(datePrefix => {
+                // Pattern 1: Standard format
+                patterns.push(`${datePrefix}_${shortcode}_youtube video #${shortcode}.mp4`);
+                
+                // Pattern 2: Title-based format (if we have title)
+                if (title) {
+                    const cleanTitle = title.replace(/\([^)]*\)/g, (match) => {
+                        const content = match.slice(1, -1);
+                        if (content.match(/^\d+:\d+$/)) {
+                            return content.replace(':', '');
+                        }
+                        return match.replace(/:/g, '_');
+                    });
+                    patterns.push(`${datePrefix}_${shortcode}_${cleanTitle}.mp4`);
+                }
+            });
+            
+            // Add basic patterns as fallback
+            patterns.push(`${shortcode}_youtube_video.mp4`);
+            patterns.push(`${shortcode}.mp4`);
+
+            console.log(`🔍 Searching for video file ${shortcode} with ${patterns.length} patterns`);
 
             for (const pattern of patterns) {
                 try {

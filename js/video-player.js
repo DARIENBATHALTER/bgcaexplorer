@@ -628,6 +628,15 @@ class VideoPlayer {
     }
 
     /**
+     * Hide YouTube embed
+     */
+    hideYouTubeEmbed() {
+        if (this.youtubeIframe) {
+            this.youtubeIframe.style.display = 'none';
+        }
+    }
+
+    /**
      * Play video
      */
     play() {

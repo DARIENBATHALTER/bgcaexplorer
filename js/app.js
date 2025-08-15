@@ -1298,6 +1298,7 @@ class ArchiveExplorer {
             
             // Update UI
             this.elements.videoGridView.style.display = 'none';
+            this.elements.videoListView.style.display = 'none';
             this.elements.videoDetailView.style.display = 'block';
             
             // Hide channel navigation tools, stats bar, and channel statistics
@@ -1638,6 +1639,16 @@ class ArchiveExplorer {
      * Render comments list
      */
     renderComments(comments) {
+        if (!comments || comments.length === 0) {
+            this.elements.commentsList.innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-chat-dots-fill mb-3" style="font-size: 2rem;"></i>
+                    <p>No comments available for this video.</p>
+                </div>
+            `;
+            return;
+        }
+        
         const html = comments.map(comment => this.createCommentCard(comment)).join('');
         this.elements.commentsList.innerHTML = html;
         
