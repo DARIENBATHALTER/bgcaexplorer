@@ -236,8 +236,8 @@
                         </span>
                     </div>
                 </div>
-                <button type="button" id="commentAnalyticsBtn" class="btn btn-danger me-2">
-                <i class="bi bi-graph-up"></i> Comment Analytics
+                <button type="button" id="channelAnalyticsBtn" class="btn btn-danger me-2">
+                <i class="bi bi-bar-chart-line"></i> Channel Analytics
             </button>
                 <button type="button" id="keywordAnalyticsBtn" class="btn btn-danger me-2">
                     <i class="bi bi-tags"></i> Keyword Analytics
@@ -499,48 +499,6 @@
 
                 <!-- Metadata/Insights Sidebar -->
                 <div class="col-lg-4">
-                    <!-- Comment Insights -->
-                    <div id="commentInsights" class="comment-insights mb-4" style="display: none;">
-                        <h5 class="mb-3">Analytics</h5>
-                        <div class="insights-tabs mb-3">
-                            <button class="btn btn-sm btn-outline-secondary active analytics-tab" data-tab="frequent">
-                                <i class="bi bi-cloud"></i> Words
-                            </button>
-                            <button class="btn btn-sm btn-outline-secondary analytics-tab" data-tab="liked">
-                                <i class="bi bi-heart"></i> Liked
-                            </button>
-                            <button class="btn btn-sm btn-outline-secondary analytics-tab" data-tab="themes">
-                                <i class="bi bi-tags"></i> Themes/Sentiment
-                            </button>
-                        </div>
-                        
-                        <div class="insights-content">
-                            <div id="frequentTab" class="insight-tab tab-pane active">
-                                <div class="tab-header">
-                                    <h6>Most Frequent Words</h6>
-                                    <small class="text-muted">Top words mentioned in comments</small>
-                                </div>
-                                <div id="analyticsWordCloud" class="analytics-word-cloud"></div>
-                            </div>
-                            
-                            <div id="likedTab" class="insight-tab tab-pane" style="display: none;">
-                                <div class="tab-header">
-                                    <h6>Most Liked Words</h6>
-                                    <small class="text-muted">Words from highest-liked comments</small>
-                                </div>
-                                <div id="analyticsLikedWords" class="analytics-liked-words"></div>
-                            </div>
-                            
-                            
-                            <div id="themesTab" class="insight-tab tab-pane" style="display: none;">
-                                <div class="tab-header">
-                                    <h6>Themes & Sentiment</h6>
-                                    <small class="text-muted">Common topics and emotional tone</small>
-                                </div>
-                                <div id="themesAnalysis" class="themes-analysis"></div>
-                            </div>
-                        </div>
-                    </div>
 
                     <!-- Video Content Insights -->
                     <div id="videoContentInsights" class="video-content-insights mb-4">
@@ -660,190 +618,229 @@
     </div>
 
     <!-- Comment Analytics Modal -->
-    <div class="modal fade" id="commentAnalyticsModal" tabindex="-1" aria-labelledby="commentAnalyticsModalLabel" aria-hidden="true">
+    <div class="modal fade" id="channelAnalyticsModal" tabindex="-1" aria-labelledby="channelAnalyticsModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="commentAnalyticsModalLabel">
-                        <i class="bi bi-graph-up"></i> Channel Comment Analytics
+                <div class="modal-header bg-gradient" style="background: linear-gradient(135deg, #dc3545 0%, #c53030 100%);">
+                    <h5 class="modal-title text-white" id="channelAnalyticsModalLabel">
+                        <i class="bi bi-bar-chart-line me-2"></i>BGCA YouTube Archive Analytics
+                        <small class="d-block mt-1 opacity-75">17 Years of Impact Stories (2008-2025)</small>
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body p-0">
                     <!-- Loading State -->
-                    <div id="commentAnalyticsLoading" class="text-center py-5" style="display: none;">
+                    <div id="channelAnalyticsLoading" class="text-center py-5" style="display: none;">
                         <div class="spinner-border text-danger mb-3" role="status" style="width: 3rem; height: 3rem;">
                             <span class="visually-hidden">Loading...</span>
                         </div>
-                        <h5>Analyzing Comments...</h5>
-                        <p class="text-muted">Processing sentiment, themes, and engagement metrics</p>
-                        <div class="progress mt-3" style="width: 300px; margin: 0 auto;">
-                            <div id="commentAnalyticsProgress" class="progress-bar bg-danger" role="progressbar" style="width: 0%"></div>
-                        </div>
+                        <h5>Analyzing Channel Data...</h5>
+                        <p class="text-muted">Processing 17 years of content and impact stories</p>
                     </div>
 
-                    <!-- Analytics Content -->
-                    <div id="commentAnalyticsContent">
+                    <!-- Channel Analytics Content -->
+                    <div id="channelAnalyticsContent">
                         <!-- Analytics Tiles -->
-                    <div class="analytics-tiles mb-4">
-                        <div class="row g-3">
-                            <div class="col-md-3 col-sm-6">
-                                <div class="analytics-tile">
-                                    <div class="tile-icon bg-danger">
-                                        <i class="bi bi-chat-dots-fill"></i>
-                                    </div>
-                                    <div class="tile-content">
-                                        <div class="tile-number" id="analyticsCommentsCount">0</div>
-                                        <div class="tile-label">Total Comments</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3 col-sm-6">
-                                <div class="analytics-tile">
-                                    <div class="tile-icon bg-danger">
-                                        <i class="bi bi-heart-fill"></i>
-                                    </div>
-                                    <div class="tile-content">
-                                        <div class="tile-number" id="analyticsLikesCount">0</div>
-                                        <div class="tile-label">Total Likes</div>
+                        <!-- Archive Overview Stats -->
+                        <div class="p-4 bg-light border-bottom">
+                            <div class="row g-3">
+                                <div class="col-lg-3 col-md-6">
+                                    <div class="stat-card text-center p-3 bg-white rounded shadow-sm">
+                                        <div class="stat-icon mb-2">
+                                            <i class="bi bi-play-circle text-danger" style="font-size: 2rem;"></i>
+                                        </div>
+                                        <div class="stat-number h4 mb-1 text-danger">726</div>
+                                        <div class="stat-label text-muted small">Total Videos</div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="col-md-3 col-sm-6">
-                                <div class="analytics-tile">
-                                    <div class="tile-icon bg-secondary">
-                                        <i class="bi bi-people-fill"></i>
-                                    </div>
-                                    <div class="tile-content">
-                                        <div class="tile-number" id="analyticsUniqueCommenters">0</div>
-                                        <div class="tile-label">Unique Commenters</div>
+                                <div class="col-lg-3 col-md-6">
+                                    <div class="stat-card text-center p-3 bg-white rounded shadow-sm">
+                                        <div class="stat-icon mb-2">
+                                            <i class="bi bi-eye text-primary" style="font-size: 2rem;"></i>
+                                        </div>
+                                        <div class="stat-number h4 mb-1 text-primary">2.8M</div>
+                                        <div class="stat-label text-muted small">Total Views</div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="col-md-3 col-sm-6">
-                                <div class="analytics-tile">
-                                    <div class="tile-icon bg-secondary">
-                                        <i class="bi bi-bar-chart-fill"></i>
+                                <div class="col-lg-3 col-md-6">
+                                    <div class="stat-card text-center p-3 bg-white rounded shadow-sm">
+                                        <div class="stat-icon mb-2">
+                                            <i class="bi bi-calendar-range text-success" style="font-size: 2rem;"></i>
+                                        </div>
+                                        <div class="stat-number h4 mb-1 text-success">17</div>
+                                        <div class="stat-label text-muted small">Years of Content</div>
                                     </div>
-                                    <div class="tile-content">
-                                        <div class="tile-number" id="analyticsAvgLikes">0</div>
-                                        <div class="tile-label">Avg Likes/Comment</div>
+                                </div>
+                                <div class="col-lg-3 col-md-6">
+                                    <div class="stat-card text-center p-3 bg-white rounded shadow-sm">
+                                        <div class="stat-icon mb-2">
+                                            <i class="bi bi-heart text-warning" style="font-size: 2rem;"></i>
+                                        </div>
+                                        <div class="stat-number h4 mb-1 text-warning">8.9K</div>
+                                        <div class="stat-label text-muted small">Total Likes</div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Unified Analytics Tabbed Interface -->
-                    <div class="unified-analytics mb-4">
-                        <div class="analytics-section">
-                            <!-- Tab Navigation -->
-                            <ul class="nav nav-tabs" id="analyticsTabsNav" role="tablist">
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link active" id="liked-words-tab" data-bs-toggle="tab" data-bs-target="#liked-words-pane" type="button" role="tab" aria-controls="liked-words-pane" aria-selected="true">
-                                        <i class="bi bi-star"></i> Most Liked Words
-                                    </button>
-                                </li>
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link" id="frequent-words-tab" data-bs-toggle="tab" data-bs-target="#frequent-words-pane" type="button" role="tab" aria-controls="frequent-words-pane" aria-selected="false">
-                                        <i class="bi bi-cloud"></i> Most Frequent Words
-                                    </button>
-                                </li>
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link" id="themes-tab" data-bs-toggle="tab" data-bs-target="#themes-pane" type="button" role="tab" aria-controls="themes-pane" aria-selected="false">
-                                        <i class="bi bi-tags"></i> Themes/Sentiment
-                                    </button>
-                                </li>
-                            </ul>
-
-                            <!-- Tab Content -->
-                            <div class="tab-content" id="analyticsTabsContent">
-                                <!-- Most Liked Words Tab -->
-                                <div class="tab-pane fade show active" id="liked-words-pane" role="tabpanel" aria-labelledby="liked-words-tab">
-                                    <div class="tab-content-padding">
-                                        <div class="tab-header mb-3">
-                                            <h6 class="mb-1">Most Liked Words</h6>
-                                            <small class="text-muted">Words from highest-liked comments</small>
+                        <!-- Content Coverage Section -->
+                        <div class="p-4 border-bottom">
+                            <h6 class="mb-3"><i class="bi bi-file-richtext text-info me-2"></i>Rich Content Coverage</h6>
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <div class="coverage-item">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <span class="text-muted">Descriptions</span>
+                                            <span class="badge bg-success">98.2%</span>
                                         </div>
-                                        <div id="mostLikedWords" class="word-cloud">
-                                            <!-- Most liked words will be populated here -->
+                                        <div class="progress" style="height: 8px;">
+                                            <div class="progress-bar bg-success" style="width: 98.2%"></div>
                                         </div>
                                     </div>
                                 </div>
-
-                                <!-- Most Frequent Words Tab -->
-                                <div class="tab-pane fade" id="frequent-words-pane" role="tabpanel" aria-labelledby="frequent-words-tab">
-                                    <div class="tab-content-padding">
-                                        <div class="tab-header mb-3">
-                                            <h6 class="mb-1">Most Frequent Words</h6>
-                                            <small class="text-muted">Top words mentioned in comments</small>
+                                <div class="col-md-3">
+                                    <div class="coverage-item">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <span class="text-muted">Keywords</span>
+                                            <span class="badge bg-info">59.6%</span>
                                         </div>
-                                        <div id="mostFrequentWords" class="word-cloud">
-                                            <!-- Most frequent words will be populated here -->
+                                        <div class="progress" style="height: 8px;">
+                                            <div class="progress-bar bg-info" style="width: 59.6%"></div>
                                         </div>
                                     </div>
                                 </div>
-
-
-                                <!-- Theme Analysis Tab -->
-                                <div class="tab-pane fade" id="themes-pane" role="tabpanel" aria-labelledby="themes-tab">
-                                    <div class="tab-content-padding">
-                                        <div class="tab-header mb-3">
-                                            <h6 class="mb-1">Themes & Sentiment Analysis</h6>
-                                            <small class="text-muted">Common topics, themes and emotional tone</small>
+                                <div class="col-md-3">
+                                    <div class="coverage-item">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <span class="text-muted">Summaries</span>
+                                            <span class="badge bg-warning">57.4%</span>
                                         </div>
-                                        <div id="topThemes" class="top-themes">
-                                            <!-- Top themes will be populated here -->
+                                        <div class="progress" style="height: 8px;">
+                                            <div class="progress-bar bg-warning" style="width: 57.4%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="coverage-item">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <span class="text-muted">Transcripts</span>
+                                            <span class="badge bg-primary">57.4%</span>
+                                        </div>
+                                        <div class="progress" style="height: 8px;">
+                                            <div class="progress-bar bg-primary" style="width: 57.4%"></div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- All Comments Section -->
-                    <div class="all-comments-section">
-                        <div class="mb-3">
-                            <h5><i class="bi bi-chat-square-text"></i> Search Channel Comments</h5>
+                        <!-- Content Categories & Top Themes -->
+                        <div class="p-4">
+                            <div class="row">
+                                <div class="col-lg-6">
+                                    <h6 class="mb-3"><i class="bi bi-folder2-open text-danger me-2"></i>Content Categories</h6>
+                                    <div class="content-categories">
+                                        <div class="category-item d-flex justify-content-between align-items-center py-2 border-bottom">
+                                            <span><i class="bi bi-person-badge me-2 text-primary"></i>Youth of the Year Features</span>
+                                            <span class="badge bg-primary rounded-pill">98</span>
+                                        </div>
+                                        <div class="category-item d-flex justify-content-between align-items-center py-2 border-bottom">
+                                            <span><i class="bi bi-people me-2 text-success"></i>Alumni Stories</span>
+                                            <span class="badge bg-success rounded-pill">62</span>
+                                        </div>
+                                        <div class="category-item d-flex justify-content-between align-items-center py-2 border-bottom">
+                                            <span><i class="bi bi-heart me-2 text-danger"></i>Personal Stories</span>
+                                            <span class="badge bg-danger rounded-pill">41</span>
+                                        </div>
+                                        <div class="category-item d-flex justify-content-between align-items-center py-2 border-bottom">
+                                            <span><i class="bi bi-handshake me-2 text-info"></i>Partnership Features</span>
+                                            <span class="badge bg-info rounded-pill">25</span>
+                                        </div>
+                                        <div class="category-item d-flex justify-content-between align-items-center py-2 border-bottom">
+                                            <span><i class="bi bi-book me-2 text-warning"></i>Educational Programs</span>
+                                            <span class="badge bg-warning rounded-pill">21</span>
+                                        </div>
+                                        <div class="category-item d-flex justify-content-between align-items-center py-2">
+                                            <span><i class="bi bi-megaphone me-2 text-secondary"></i>PSAs & Campaigns</span>
+                                            <span class="badge bg-secondary rounded-pill">11</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <h6 class="mb-3"><i class="bi bi-tags text-success me-2"></i>Top Impact Themes</h6>
+                                    <div class="top-themes">
+                                        <div class="theme-item mb-2">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="fw-medium">Community Support</span>
+                                                <span class="text-muted">173 videos</span>
+                                            </div>
+                                            <div class="progress" style="height: 6px;">
+                                                <div class="progress-bar bg-danger" style="width: 100%"></div>
+                                            </div>
+                                        </div>
+                                        <div class="theme-item mb-2">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="fw-medium">Mentorship</span>
+                                                <span class="text-muted">79 videos</span>
+                                            </div>
+                                            <div class="progress" style="height: 6px;">
+                                                <div class="progress-bar bg-primary" style="width: 45%"></div>
+                                            </div>
+                                        </div>
+                                        <div class="theme-item mb-2">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="fw-medium">Personal Growth</span>
+                                                <span class="text-muted">64 videos</span>
+                                            </div>
+                                            <div class="progress" style="height: 6px;">
+                                                <div class="progress-bar bg-success" style="width: 37%"></div>
+                                            </div>
+                                        </div>
+                                        <div class="theme-item mb-2">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="fw-medium">Leadership Development</span>
+                                                <span class="text-muted">59 videos</span>
+                                            </div>
+                                            <div class="progress" style="height: 6px;">
+                                                <div class="progress-bar bg-info" style="width: 34%"></div>
+                                            </div>
+                                        </div>
+                                        <div class="theme-item mb-2">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="fw-medium">Education & Learning</span>
+                                                <span class="text-muted">54 videos</span>
+                                            </div>
+                                            <div class="progress" style="height: 6px;">
+                                                <div class="progress-bar bg-warning" style="width: 31%"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        
-                        <!-- Enhanced Comment Search -->
-                        <div class="comment-search-section mb-4">
-                            <div class="row mb-3">
+
+                        <!-- Impact Summary -->
+                        <div class="p-4 bg-light mt-3">
+                            <div class="row">
                                 <div class="col-md-8">
-                                    <div class="input-group">
-                                        <span class="input-group-text bg-danger text-white"><i class="bi bi-search"></i></span>
-                                        <input type="text" id="channelCommentSearch" class="form-control form-control-lg" placeholder="Search all channel comments...">
-                                    </div>
+                                    <h6 class="text-danger mb-2"><i class="bi bi-heart-fill me-2"></i>Archive Impact Summary</h6>
+                                    <p class="text-muted mb-2">
+                                        This archive captures <strong>17 years of transformation stories</strong> showing how Boys & Girls Clubs provide safe spaces, mentorship, educational opportunities, and character development that help young people overcome challenges and achieve their potential.
+                                    </p>
+                                    <p class="text-muted mb-0 small">
+                                        The content demonstrates consistent themes of <strong>community support, personal growth, leadership development, and the power of caring adults</strong> in shaping young lives across America.
+                                    </p>
                                 </div>
                                 <div class="col-md-4">
-                                    <select id="channelCommentSort" class="form-select form-select-lg">
-                                        <option value="likes-desc">Most Liked</option>
-                                        <option value="likes-asc">Least Liked</option>
-                                        <option value="date-desc">Newest</option>
-                                        <option value="date-asc">Oldest</option>
-                                        <option value="video">By Video</option>
-                                    </select>
+                                    <div class="celebrity-count text-center p-3 bg-white rounded">
+                                        <i class="bi bi-star-fill text-warning" style="font-size: 1.5rem;"></i>
+                                        <div class="h5 mb-1 text-warning">15</div>
+                                        <div class="small text-muted">Celebrity Advocates</div>
+                                        <div class="small text-muted">Including Denzel Washington, Shaquille O'Neal, Jennifer Lopez</div>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="search-results-info">
-                                <span class="badge bg-secondary" id="commentSearchResults">0 comments found</span>
-                            </div>
-                        </div>
-                        
-                        <!-- Comments List -->
-                        <div id="channelCommentsList" class="comments-list" style="max-height: 400px; overflow-y: auto;">
-                            <!-- Comments will be loaded here -->
-                        </div>
-                        
-                        <!-- Load More Comments -->
-                        <div class="text-center mt-3">
-                            <button type="button" id="loadMoreChannelComments" class="btn btn-outline-secondary btn-sm" style="display: none;">
-                                Load More Comments
-                            </button>
-                        </div>
-                    </div>
-                    </div> <!-- End commentAnalyticsContent -->
+                        </div>                    </div> <!-- End commentAnalyticsContent -->
                 </div>
             </div>
         </div>

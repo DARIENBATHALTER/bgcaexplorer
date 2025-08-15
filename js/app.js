@@ -757,11 +757,11 @@ class ArchiveExplorer {
             // Export all videos
             // Export All Videos button is now handled by the dropdown in HTML with onclick="window.app.exportAllVideos('comment')" or 'thumbnail'
 
-            // Comment Analytics button
-            const commentAnalyticsBtn = document.getElementById('commentAnalyticsBtn');
-            if (commentAnalyticsBtn) {
-                commentAnalyticsBtn.addEventListener('click', () => {
-                    this.showCommentAnalytics();
+            // Channel Analytics button
+            const channelAnalyticsBtn = document.getElementById('channelAnalyticsBtn');
+            if (channelAnalyticsBtn) {
+                channelAnalyticsBtn.addEventListener('click', () => {
+                    this.showChannelAnalytics();
                 });
             }
 
@@ -1463,13 +1463,13 @@ class ArchiveExplorer {
      * Load additional video content (transcript, summary, keywords)
      */
     async loadVideoContent(video) {
-        // Load transcript
+        // Load transcript directly from video object
         this.loadTranscript(video);
         
-        // Load summary
+        // Load summary directly from video object
         this.loadSummary(video);
         
-        // Load keywords
+        // Load keywords directly from video object
         this.loadKeywords(video);
     }
 
@@ -1478,12 +1478,19 @@ class ArchiveExplorer {
      */
     async loadTranscript(video) {
         try {
-            // Use archive loader through data manager
+            // Check if transcript is already in video object (from new metadata structure)
+            if (video.transcript && video.transcript.trim()) {
+                this.elements.videoTranscript.innerHTML = this.escapeHTML(video.transcript).replace(/\n/g, '<br>');
+                console.log(`✅ Found transcript for: ${video.video_id} - ${video.title}`);
+                return;
+            }
+            
+            // Fallback: Use archive loader through data manager for old structure
             const transcriptData = await this.dataManager.loadTranscript(video.video_id);
             
             if (transcriptData && transcriptData.transcript) {
                 this.elements.videoTranscript.innerHTML = this.escapeHTML(transcriptData.transcript);
-                console.log(`✅ Found transcript for: ${video.video_id} - ${video.title}`);
+                console.log(`✅ Found transcript (fallback) for: ${video.video_id} - ${video.title}`);
             } else {
                 this.elements.videoTranscript.innerHTML = '<div class="text-muted">Transcript not available for this video.</div>';
                 console.warn(`❌ No transcript found for video: ${video.video_id} - ${video.title}`);
@@ -1499,14 +1506,23 @@ class ArchiveExplorer {
      */
     async loadSummary(video) {
         try {
-            // Use archive loader through data manager
+            // Check if summary is already in video object (from new metadata structure)
+            if (video.summary && video.summary.trim()) {
+                // Remove the header line if it exists
+                const cleanContent = video.summary.replace(/^Video:.*\n={40,}\n\n?/m, '');
+                this.elements.videoSummary.innerHTML = this.escapeHTML(cleanContent).replace(/\n/g, '<br>');
+                console.log(`✅ Found summary for: ${video.video_id} - ${video.title}`);
+                return;
+            }
+            
+            // Fallback: Use archive loader through data manager for old structure
             const summaryData = await this.dataManager.loadSummary(video.video_id);
             
             if (summaryData && summaryData.summary) {
                 // Remove the header line if it exists
                 const cleanContent = summaryData.summary.replace(/^Video:.*\n={40,}\n\n?/m, '');
                 this.elements.videoSummary.innerHTML = this.escapeHTML(cleanContent).replace(/\n/g, '<br>');
-                console.log(`✅ Found summary for: ${video.video_id} - ${video.title}`);
+                console.log(`✅ Found summary (fallback) for: ${video.video_id} - ${video.title}`);
             } else {
                 this.elements.videoSummary.innerHTML = '<div class="text-muted">Summary not available for this video.</div>';
                 console.warn(`❌ No summary found for video: ${video.video_id} - ${video.title}`);
@@ -1522,8 +1538,42 @@ class ArchiveExplorer {
      */
     async loadKeywords(video) {
         try {
-            // Use keywords already loaded in video object from archive loader
-            const keywords = video.keywords || [];
+            // Start with keywords from video object (new metadata structure)
+            let keywords = [...(video.keywords || [])];
+            
+            // Try to merge with legacy keywords file for maximum coverage
+            try {
+                if (!this.legacyKeywordsCache) {
+                    const response = await fetch('../bgca_yt_archive/bgca_yt_keywords.json');
+                    if (response.ok) {
+                        this.legacyKeywordsCache = await response.json();
+                    }
+                }
+                
+                // Look for keywords using various possible keys
+                if (this.legacyKeywordsCache) {
+                    const possibleKeys = [
+                        video.video_id,
+                        `${video.title}_${video.video_id}_en_auto_ytdlp`,
+                        Object.keys(this.legacyKeywordsCache).find(key => key.includes(video.video_id))
+                    ].filter(Boolean);
+                    
+                    for (const key of possibleKeys) {
+                        const legacyKeywords = this.legacyKeywordsCache[key];
+                        if (legacyKeywords && Array.isArray(legacyKeywords)) {
+                            // Merge keywords, avoiding duplicates
+                            const lowerKeywords = keywords.map(k => k.toLowerCase());
+                            const newKeywords = legacyKeywords.filter(k => 
+                                !lowerKeywords.includes(k.toLowerCase())
+                            );
+                            keywords = [...keywords, ...newKeywords];
+                            break;
+                        }
+                    }
+                }
+            } catch (legacyError) {
+                console.warn('Could not load legacy keywords:', legacyError);
+            }
             
             if (keywords.length > 0) {
                 const keywordTags = keywords.map(keyword => 
@@ -2737,9 +2787,9 @@ class ArchiveExplorer {
     }
 
     /**
-     * Show comment analytics modal
+     * Show channel analytics modal
      */
-    async showCommentAnalytics() {
+    async showChannelAnalytics() {
         // Show immediate loading toast
         this.showLoadingToast('Loading comment analytics panel...');
         
@@ -3238,8 +3288,32 @@ class ArchiveExplorer {
                 return null;
             }
 
-            // Return keywords directly from video object (loaded by archive loader)
-            return video.keywords || [];
+            // Start with keywords from video object
+            let keywords = [...(video.keywords || [])];
+            
+            // Try to merge with legacy keywords if available
+            if (this.legacyKeywordsCache) {
+                const possibleKeys = [
+                    videoId,
+                    `${video.title}_${videoId}_en_auto_ytdlp`,
+                    Object.keys(this.legacyKeywordsCache).find(key => key.includes(videoId))
+                ].filter(Boolean);
+                
+                for (const key of possibleKeys) {
+                    const legacyKeywords = this.legacyKeywordsCache[key];
+                    if (legacyKeywords && Array.isArray(legacyKeywords)) {
+                        // Merge keywords, avoiding duplicates
+                        const lowerKeywords = keywords.map(k => k.toLowerCase());
+                        const newKeywords = legacyKeywords.filter(k => 
+                            !lowerKeywords.includes(k.toLowerCase())
+                        );
+                        keywords = [...keywords, ...newKeywords];
+                        break;
+                    }
+                }
+            }
+
+            return keywords;
         } catch (error) {
             console.error('Error getting video keywords:', error);
             return null;
@@ -3260,16 +3334,7 @@ class ArchiveExplorer {
         contentDiv.style.display = 'none';
 
         try {
-            // Load keywords cache if not already loaded
-            if (!this.keywordsCache) {
-                const response = await fetch(AppConfig.dataFiles.keywords);
-                if (!response.ok) {
-                    throw new Error('Keywords file not found');
-                }
-                this.keywordsCache = await response.json();
-            }
-
-            // Analyze keyword data
+            // Analyze keyword data directly from video metadata
             const analyticsData = await this.analyzeKeywordData();
             
             // Populate the analytics
@@ -3312,8 +3377,8 @@ class ArchiveExplorer {
                 for (const keyword of videoKeywords) {
                     const cleanKeyword = keyword.toLowerCase().trim();
                     
-                    // Filter out "medical medium" as it's the channel name
-                    if (cleanKeyword === 'medical medium') {
+                    // Filter out "boys girls clubs america" as it's the channel name
+                    if (cleanKeyword === 'boys girls clubs america' || cleanKeyword === 'bgca') {
                         continue;
                     }
                     
