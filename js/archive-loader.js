@@ -684,7 +684,17 @@ class ArchiveLoader {
         if (this.directoryHandle) {
             try {
                 // Try loading from bgca_yt_comments directory (individual files)
-                const commentsDir = await this.directoryHandle.getDirectoryHandle('bgca_yt_comments');
+                let commentsDir;
+                try {
+                    // First try the video_comments subdirectory (newer structure)
+                    const baseCommentsDir = await this.directoryHandle.getDirectoryHandle('bgca_yt_comments');
+                    commentsDir = await baseCommentsDir.getDirectoryHandle('video_comments');
+                    console.log(`📁 Using bgca_yt_comments/video_comments/ subdirectory for ${shortcode}`);
+                } catch (e) {
+                    // Fallback to root bgca_yt_comments directory (older structure)
+                    commentsDir = await this.directoryHandle.getDirectoryHandle('bgca_yt_comments');
+                    console.log(`📁 Using bgca_yt_comments/ root directory for ${shortcode}`);
+                }
                 
                 // Try different file patterns for comment files
                 const patterns = [
