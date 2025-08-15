@@ -5,7 +5,7 @@
 
 class ArchiveLoader {
     constructor() {
-        this.archivePath = '../bgca_yt_archive';
+        this.archivePath = './data'; // Use local data directory instead
         this.apiPath = './api/archive-api.php';
         this.cache = new Map();
         this.shortcodeRegex = /([a-zA-Z0-9_-]{11})/g;
@@ -95,168 +95,88 @@ class ArchiveLoader {
 
     /**
      * Fallback discovery when PHP API is not available
-     * This method performs real file discovery with pattern validation
+     * Uses existing data files instead of file system discovery
      */
     async fallbackDiscovery() {
-        // Load existing metadata from bgca_yt_metadata.json
+        console.log('📊 Using data-based discovery instead of file system discovery');
+        
+        // Load existing metadata from videos.json
         const metadata = await this.loadVideoMetadata();
         if (!metadata || !Array.isArray(metadata)) {
             throw new Error('No video metadata available for discovery');
         }
 
-        console.log(`📊 Starting real file discovery for ${metadata.length} videos from metadata`);
+        console.log(`📊 Building discovery structure for ${metadata.length} videos`);
 
-        // Create discovery structure
-        const discovery = {
-            transcripts: {},
-            summaries: {},
-            comments: {},
-            videos: {}
-        };
+        // Load data from existing JSON files instead of file discovery
+        try {
+            // Load transcripts index
+            const transcriptsResponse = await fetch(`${this.archivePath}/transcripts.json`);
+            const transcripts = transcriptsResponse.ok ? await transcriptsResponse.json() : {};
 
-        let transcriptMatches = 0;
-        let summaryMatches = 0;
-        let commentMatches = 0;
-        let videoMatches = 0;
-        let validated = 0;
+            // Load summaries index  
+            const summariesResponse = await fetch(`${this.archivePath}/summaries.json`);
+            const summaries = summariesResponse.ok ? await summariesResponse.json() : {};
 
-        // Test a sample of files to validate our patterns
-        const testVideos = metadata.slice(0, 5);
-        console.log(`🧪 Testing file patterns with ${testVideos.length} sample videos...`);
+            // Load comments index
+            const commentsResponse = await fetch(`${this.archivePath}/comments.json`);
+            const comments = commentsResponse.ok ? await commentsResponse.json() : {};
 
-        for (const entry of testVideos) {
-            const shortcode = entry.video_id;
-            const cleanTitle = this.cleanTitleForFilename(entry.title);
-            
-            console.log(`Testing patterns for ${shortcode} - "${entry.title}"`);
-            console.log(`   Clean title: "${cleanTitle}"`);
-            
-            // Test transcript patterns (try multiple)
-            const transcriptPatterns = [
-                `${cleanTitle}_${shortcode}_en_auto_ytdlp.txt`,
-                `${shortcode}_en_auto_ytdlp.txt`
-            ];
-            
-            for (const pattern of transcriptPatterns) {
-                try {
-                    const response = await fetch(`${this.archivePath}/bgca_yt_subtitles/${pattern}`, { method: 'HEAD' });
-                    if (response.ok) {
-                        console.log(`   ✅ Found transcript: ${pattern}`);
-                        discovery.transcripts[shortcode] = pattern;
-                        transcriptMatches++;
-                        break;
+            console.log(`📊 Loaded data: ${Object.keys(transcripts).length} transcripts, ${Object.keys(summaries).length} summaries, ${Object.keys(comments).length} comments`);
+
+            // Create discovery structure based on available data
+            const discovery = {
+                transcripts: {},
+                summaries: {},
+                comments: {},
+                videos: {}
+            };
+
+            // Map data to discovery structure
+            metadata.forEach((entry) => {
+                const shortcode = entry.video_id;
+                if (shortcode) {
+                    // Check if data exists for this video
+                    if (transcripts[shortcode]) {
+                        discovery.transcripts[shortcode] = `${shortcode}.txt`; // Simplified path
                     }
-                } catch (error) {
-                    // File doesn't exist, continue
-                }
-            }
-            
-            // Test summary patterns
-            const summaryPatterns = [
-                `${cleanTitle}_${shortcode}_en_auto_ytdlp_summary.txt`,
-                `${shortcode}_en_auto_ytdlp_summary.txt`
-            ];
-            
-            for (const pattern of summaryPatterns) {
-                try {
-                    const response = await fetch(`${this.archivePath}/bgca_yt_summaries/${pattern}`, { method: 'HEAD' });
-                    if (response.ok) {
-                        console.log(`   ✅ Found summary: ${pattern}`);
-                        discovery.summaries[shortcode] = pattern;
-                        summaryMatches++;
-                        break;
+                    if (summaries[shortcode]) {
+                        discovery.summaries[shortcode] = `${shortcode}_summary.txt`;
                     }
-                } catch (error) {
-                    // File doesn't exist, continue
-                }
-            }
+                    if (comments[shortcode]) {
+                        discovery.comments[shortcode] = `${shortcode}_comments.json`;
+                    }
+                    
+                    // Assume video files follow standard pattern
+                    discovery.videos[shortcode] = `${shortcode}.mp4`;
+            });
+
+            const totals = {
+                unique_videos: metadata.length,
+                transcripts: Object.keys(discovery.transcripts).length,
+                summaries: Object.keys(discovery.summaries).length,
+                comments: Object.keys(discovery.comments).length,
+                video_files: Object.keys(discovery.videos).length
+            };
+
+            const result = {
+                success: true,
+                discovery,
+                totals
+            };
+
+            this.fileDiscovery = result;
+            console.log('✅ Data-based discovery completed:', totals);
+            return result;
             
-            // Test comment pattern
-            const commentFile = `${shortcode}_comments.json`;
-            try {
-                const response = await fetch(`${this.archivePath}/bgca_yt_comments/video_comments/${commentFile}`, { method: 'HEAD' });
-                if (response.ok) {
-                    console.log(`   ✅ Found comments: ${commentFile}`);
-                    discovery.comments[shortcode] = commentFile;
-                    commentMatches++;
-                }
-            } catch (error) {
-                // File doesn't exist
-            }
-            
-            validated++;
-            console.log(`   Validation ${validated}/${testVideos.length} complete`);
+        } catch (error) {
+            console.error('❌ Error during data-based discovery:', error);
+            throw new Error('Failed to load discovery data from JSON files');
         }
-
-        console.log(`📊 Pattern validation complete. Applying patterns to all ${metadata.length} videos...`);
-
-        // Apply validated patterns to all videos
-        metadata.forEach((entry, index) => {
-            const shortcode = entry.video_id;
-            if (shortcode && shortcode.length === 11) {
-                const cleanTitle = this.cleanTitleForFilename(entry.title);
-                
-                // Use validated patterns or fallback to assumptions
-                if (!discovery.transcripts[shortcode]) {
-                    discovery.transcripts[shortcode] = `${cleanTitle}_${shortcode}_en_auto_ytdlp.txt`;
-                }
-                if (!discovery.summaries[shortcode]) {
-                    discovery.summaries[shortcode] = `${cleanTitle}_${shortcode}_en_auto_ytdlp_summary.txt`;
-                }
-                if (!discovery.comments[shortcode]) {
-                    discovery.comments[shortcode] = `${shortcode}_comments.json`;
-                }
-                
-                // Video files pattern - try to find the actual file by checking multiple patterns
-                const datePrefixes = [
-                    entry.published_at ? entry.published_at.replace(/-/g, '').substring(0, 8) : null,
-                    '20250626', // Recent date prefix seen in actual files
-                    '20080317'  // Default fallback
-                ].filter(Boolean);
-                
-                // Use the first available date prefix for now
-                // In a perfect world, we'd actually check which file exists
-                const datePrefix = datePrefixes[1] || datePrefixes[0]; // Prefer 20250626 if available
-                
-                // Try both filename patterns
-                const videoPatterns = [
-                    `${datePrefix}_${shortcode}_youtube video #${shortcode}.mp4`,
-                    `${datePrefix}_${shortcode}_${cleanTitle}.mp4` // Alternative pattern with title
-                ];
-                
-                discovery.videos[shortcode] = videoPatterns[0]; // Use first pattern for now
-            }
-
-            // Progress reporting
-            if ((index + 1) % 100 === 0 || index === metadata.length - 1) {
-                console.log(`📊 Applied patterns to ${index + 1}/${metadata.length} videos`);
-            }
-        });
-
-        const totals = {
-            unique_videos: metadata.length,
-            transcripts: Object.keys(discovery.transcripts).length,
-            summaries: Object.keys(discovery.summaries).length,
-            comments: Object.keys(discovery.comments).length,
-            video_files: Object.keys(discovery.videos).length,
-            validated_transcripts: transcriptMatches,
-            validated_summaries: summaryMatches,
-            validated_comments: commentMatches
-        };
-
-        const result = {
-            success: true,
-            discovery,
-            totals
-        };
-
-        this.fileDiscovery = result;
-        console.log('✅ Fallback discovery completed with validation:', totals);
-        return result;
     }
 
     /**
-     * Load video metadata from bgca_yt_metadata.json
+     * Load video metadata from available data files
      */
     async loadVideoMetadata() {
         if (this.cache.has('metadata')) {
@@ -264,13 +184,19 @@ class ArchiveLoader {
         }
 
         try {
-            const response = await fetch(`${this.archivePath}/bgca_yt_metadata.json`);
+            // First try to load from videos.json which we know exists
+            const response = await fetch(`${this.archivePath}/videos.json`);
             if (!response.ok) {
                 throw new Error(`Failed to load metadata: ${response.status}`);
             }
             const data = await response.json();
-            this.cache.set('metadata', data);
-            return data;
+            
+            // Convert videos.json format to expected metadata format
+            const metadata = Array.isArray(data) ? data : Object.values(data);
+            
+            this.cache.set('metadata', metadata);
+            console.log(`📊 Loaded ${metadata.length} videos from videos.json`);
+            return metadata;
         } catch (error) {
             console.error('Error loading video metadata:', error);
             return null;
@@ -363,69 +289,20 @@ class ArchiveLoader {
             return this.cache.get(cacheKey);
         }
 
-        // Try PHP API first
         try {
-            const response = await fetch(`${this.apiPath}?action=get_transcript&shortcode=${shortcode}`);
+            // Load from transcripts.json
+            const response = await fetch(`${this.archivePath}/transcripts.json`);
             if (response.ok) {
-                const data = await response.json();
-                if (data.success) {
-                    const transcript = {
-                        video_id: data.video_id,
-                        transcript: data.transcript.trim(),
-                        source_file: data.source_file
-                    };
-                    this.cache.set(cacheKey, transcript);
-                    return transcript;
-                }
-            }
-        } catch (error) {
-            console.warn(`PHP API not available for transcript ${shortcode}, skipping`);
-        }
-
-        // Fallback: try to load directly using discovery data or pattern matching
-        if (this.fileDiscovery && this.fileDiscovery.discovery.transcripts[shortcode]) {
-            const filename = this.fileDiscovery.discovery.transcripts[shortcode];
-            
-            // Try the discovered pattern first
-            try {
-                const response = await fetch(`${this.archivePath}/bgca_yt_subtitles/${filename}`);
-                if (response.ok) {
-                    const transcriptText = await response.text();
+                const transcripts = await response.json();
+                if (transcripts[shortcode]) {
                     const transcript = {
                         video_id: shortcode,
-                        transcript: transcriptText.trim(),
-                        source_file: filename
+                        transcript: transcripts[shortcode],
+                        source_file: 'transcripts.json'
                     };
                     this.cache.set(cacheKey, transcript);
-                    console.log(`✅ Loaded transcript via fallback: ${filename}`);
+                    console.log(`✅ Loaded transcript from JSON: ${shortcode}`);
                     return transcript;
-                }
-            } catch (error) {
-                console.warn(`Failed to load transcript with pattern ${filename}:`, error);
-            }
-            
-            // If that fails, try alternative patterns
-            const alternativePatterns = [
-                `${shortcode}_en_auto_ytdlp.txt`,
-                `${shortcode}_en_manual_ytdlp.txt`
-            ];
-            
-            for (const altPattern of alternativePatterns) {
-                try {
-                    const response = await fetch(`${this.archivePath}/bgca_yt_subtitles/${altPattern}`);
-                    if (response.ok) {
-                        const transcriptText = await response.text();
-                        const transcript = {
-                            video_id: shortcode,
-                            transcript: transcriptText.trim(),
-                            source_file: altPattern
-                        };
-                        this.cache.set(cacheKey, transcript);
-                        console.log(`✅ Loaded transcript via alternative pattern: ${altPattern}`);
-                        return transcript;
-                    }
-                } catch (error) {
-                    // Continue to next pattern
                 }
             }
         }
@@ -443,71 +320,24 @@ class ArchiveLoader {
             return this.cache.get(cacheKey);
         }
 
-        // Try PHP API first
         try {
-            const response = await fetch(`${this.apiPath}?action=get_summary&shortcode=${shortcode}`);
+            // Load from summaries.json
+            const response = await fetch(`${this.archivePath}/summaries.json`);
             if (response.ok) {
-                const data = await response.json();
-                if (data.success) {
+                const summaries = await response.json();
+                if (summaries[shortcode]) {
                     const summary = {
-                        video_id: data.video_id,
-                        summary: data.summary.trim(),
-                        source_file: data.source_file
+                        video_id: shortcode,
+                        summary: summaries[shortcode],
+                        source_file: 'summaries.json'
                     };
                     this.cache.set(cacheKey, summary);
+                    console.log(`✅ Loaded summary from JSON: ${shortcode}`);
                     return summary;
                 }
             }
         } catch (error) {
-            console.warn(`PHP API not available for summary ${shortcode}, skipping`);
-        }
-
-        // Fallback: try to load directly using discovery data or pattern matching
-        if (this.fileDiscovery && this.fileDiscovery.discovery.summaries[shortcode]) {
-            const filename = this.fileDiscovery.discovery.summaries[shortcode];
-            
-            // Try the discovered pattern first
-            try {
-                const response = await fetch(`${this.archivePath}/bgca_yt_summaries/${filename}`);
-                if (response.ok) {
-                    const summaryText = await response.text();
-                    const summary = {
-                        video_id: shortcode,
-                        summary: summaryText.trim(),
-                        source_file: filename
-                    };
-                    this.cache.set(cacheKey, summary);
-                    console.log(`✅ Loaded summary via fallback: ${filename}`);
-                    return summary;
-                }
-            } catch (error) {
-                console.warn(`Failed to load summary with pattern ${filename}:`, error);
-            }
-            
-            // If that fails, try alternative patterns
-            const alternativePatterns = [
-                `${shortcode}_en_auto_ytdlp_summary.txt`,
-                `${shortcode}_en_manual_ytdlp_summary.txt`
-            ];
-            
-            for (const altPattern of alternativePatterns) {
-                try {
-                    const response = await fetch(`${this.archivePath}/bgca_yt_summaries/${altPattern}`);
-                    if (response.ok) {
-                        const summaryText = await response.text();
-                        const summary = {
-                            video_id: shortcode,
-                            summary: summaryText.trim(),
-                            source_file: altPattern
-                        };
-                        this.cache.set(cacheKey, summary);
-                        console.log(`✅ Loaded summary via alternative pattern: ${altPattern}`);
-                        return summary;
-                    }
-                } catch (error) {
-                    // Continue to next pattern
-                }
-            }
+            console.warn(`Failed to load summary for ${shortcode}:`, error);
         }
         
         console.log(`📄 Summary for ${shortcode} not available`);
@@ -523,106 +353,33 @@ class ArchiveLoader {
             return this.cache.get(cacheKey);
         }
 
-        // Try PHP API first
         try {
-            const response = await fetch(`${this.apiPath}?action=get_comments&shortcode=${shortcode}`);
+            // Load from comments.json
+            const response = await fetch(`${this.archivePath}/comments.json`);
             if (response.ok) {
-                const data = await response.json();
-                if (data.success) {
-                    const comments = [];
+                const commentsData = await response.json();
+                if (commentsData[shortcode]) {
+                    const rawComments = commentsData[shortcode];
                     
-                    if (data.comments && Array.isArray(data.comments)) {
-                        data.comments.forEach((comment, index) => {
-                            comments.push({
-                                comment_id: `${shortcode}_comment_${index}`,
-                                video_id: shortcode,
-                                author: comment.author || 'Unknown',
-                                text: comment.text || '',
-                                like_count: comment.like_count || 0,
-                                timestamp: comment.timestamp || ''
-                            });
-                        });
-                    }
-                    
-                    this.cache.set(cacheKey, comments);
-                    return comments;
-                }
-            }
-        } catch (error) {
-            console.warn(`PHP API not available for comments ${shortcode}, skipping`);
-        }
-
-        // Fallback 1: try individual video comment files (original approach)
-        if (this.fileDiscovery && this.fileDiscovery.discovery.comments[shortcode]) {
-            try {
-                const filename = this.fileDiscovery.discovery.comments[shortcode];
-                const response = await fetch(`${this.archivePath}/bgca_yt_comments/video_comments/${filename}`);
-                if (response.ok) {
-                    const commentsData = await response.json();
-                    let comments = [];
-                    
-                    // Handle both direct array format and wrapper object format
-                    let rawComments = [];
-                    if (Array.isArray(commentsData)) {
-                        rawComments = commentsData;
-                    } else if (commentsData.comments && Array.isArray(commentsData.comments)) {
-                        rawComments = commentsData.comments;
-                    }
-                    
-                    if (rawComments.length > 0) {
-                        comments = rawComments.map((comment, index) => ({
-                            comment_id: comment.comment_id || comment.id || `${shortcode}_comment_${index}`,
-                            video_id: shortcode,
-                            author: comment.author || 'Unknown',
-                            text: comment.text || '',
-                            like_count: parseInt(comment.like_count) || 0,
-                            published_at: comment.published_at ? new Date(comment.published_at) : new Date(),
-                            is_reply: Boolean(comment.is_reply),
-                            parent_comment_id: comment.parent_comment_id || comment.parent || null
-                        }));
-                    }
-                    
-                    this.cache.set(cacheKey, comments);
-                    console.log(`✅ Loaded comments via fallback: ${filename} (${comments.length} comments)`);
-                    return comments;
-                }
-            } catch (error) {
-                console.warn(`Failed to load comments via fallback for ${shortcode}:`, error);
-            }
-        }
-
-        // Fallback 2: Load from unified comments.json file
-        try {
-            // Try to load all comments and filter by video_id
-            if (!this.cache.has('all_comments')) {
-                const response = await fetch(`${this.archivePath}/bgca_yt_explorer_data/comments.json`);
-                if (response.ok) {
-                    const allCommentsData = await response.json();
-                    this.cache.set('all_comments', allCommentsData);
-                }
-            }
-            
-            const allComments = this.cache.get('all_comments');
-            if (allComments && Array.isArray(allComments)) {
-                const videoComments = allComments
-                    .filter(comment => comment.video_id === shortcode)
-                    .map(comment => ({
-                        comment_id: comment.id || `${shortcode}_comment_${Math.random()}`,
+                    // Normalize comment format
+                    const comments = Array.isArray(rawComments) ? rawComments.map((comment, index) => ({
+                        comment_id: comment.comment_id || comment.id || `${shortcode}_comment_${index}`,
                         video_id: shortcode,
                         author: comment.author || 'Unknown',
                         text: comment.text || '',
                         like_count: parseInt(comment.like_count) || 0,
                         published_at: comment.published_at ? new Date(comment.published_at) : new Date(),
                         is_reply: Boolean(comment.is_reply),
-                        parent: comment.parent || null
-                    }));
-                
-                this.cache.set(cacheKey, videoComments);
-                console.log(`✅ Loaded comments from unified file: ${videoComments.length} comments for ${shortcode}`);
-                return videoComments;
+                        parent_comment_id: comment.parent_comment_id || comment.parent || null
+                    })) : [];
+                    
+                    this.cache.set(cacheKey, comments);
+                    console.log(`✅ Loaded comments from JSON: ${shortcode} (${comments.length} comments)`);
+                    return comments;
+                }
             }
         } catch (error) {
-            console.warn(`Failed to load comments from unified file for ${shortcode}:`, error);
+            console.warn(`Failed to load comments for ${shortcode}:`, error);
         }
 
         console.log(`💬 Comments for ${shortcode} not available`);
