@@ -1,0 +1,422 @@
+/* Video Player Styles */
+.video-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9; /* Force 16:9 aspect ratio */
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    /* Ensure no unwanted overlays */
+}
+
+.video-container::before,
+.video-container::after {
+    display: none !important;
+}
+
+.video-player {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: #000;
+    border-radius: 8px;
+    object-fit: contain; /* Resize to fit within 16:9 container */
+}
+
+/* Hide default browser controls completely */
+.video-player {
+    background: transparent;
+}
+
+.video-player::-webkit-media-controls {
+    display: none !important;
+}
+
+.video-player::-webkit-media-controls-enclosure {
+    display: none !important;
+}
+
+/* Custom video controls */
+.custom-video-controls {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.4) 50%, transparent 100%);
+    padding: 15px 20px 20px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 4;
+    pointer-events: none;
+}
+
+.custom-video-controls * {
+    pointer-events: auto;
+}
+
+.video-container:hover .custom-video-controls {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.video-container.playing:hover .custom-video-controls {
+    opacity: 1;
+}
+
+/* Control buttons */
+.controls-row {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.control-btn {
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #000;
+    font-size: 16px;
+}
+
+.control-btn:hover {
+    background: rgba(255, 255, 255, 1);
+    transform: scale(1.1);
+}
+
+.control-btn.play-pause {
+    width: 45px;
+    height: 45px;
+    font-size: 18px;
+}
+
+/* Progress bar */
+.progress-container {
+    flex: 1;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+    cursor: pointer;
+    position: relative;
+    margin: 0 10px;
+    /* Increased click area using pseudo-element instead of padding */
+    pointer-events: auto !important;
+}
+
+/* Invisible larger click area for easier interaction */
+.progress-container::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    bottom: -8px;
+    left: 0;
+    right: 0;
+    /* This creates a larger click area without affecting visual height */
+}
+
+.progress-bar {
+    height: 6px; /* Match container height exactly */
+    background: #FFD700;
+    border-radius: 3px;
+    width: 0%;
+    transition: width 0.1s ease;
+    pointer-events: none; /* Prevent the bar itself from interfering with clicks */
+}
+
+.progress-container:hover {
+    transform: scaleY(1.5);
+}
+
+.progress-container:active {
+    transform: scaleY(1.8);
+}
+
+/* Time display */
+.time-display {
+    color: white;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    min-width: 80px;
+    text-align: center;
+}
+
+/* Volume control */
+.volume-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.volume-slider {
+    width: 60px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+    -webkit-appearance: none;
+}
+
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    background: white;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.volume-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: white;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+}
+
+/* Large center play button - no background overlay */
+.video-play-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80px;
+    height: 80px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 3;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    /* Ensure no interference with video */
+    pointer-events: auto;
+}
+
+.video-play-overlay:hover {
+    background: rgba(255, 255, 255, 1);
+    transform: translate(-50%, -50%) scale(1.1);
+}
+
+.video-play-overlay::before {
+    content: '▶';
+    font-size: 28px;
+    color: #000;
+    margin-left: 4px; /* Optical centering */
+}
+
+/* Hide play overlay when video is playing */
+.video-container.playing .video-play-overlay {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Fallback for when video is not available */
+.video-fallback {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 2px dashed #dee2e6;
+}
+
+.video-fallback .alert {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    margin: 0;
+    text-align: center;
+    width: 80%;
+}
+
+/* Poster/thumbnail styling */
+.video-poster {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 1;
+}
+
+.video-player[data-poster] {
+    background-image: var(--poster-url);
+    background-size: cover;
+    background-position: center;
+}
+
+/* Loading state for video */
+.video-loading {
+    position: relative;
+}
+
+.video-loading::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+    z-index: 2;
+}
+
+@keyframes spin {
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* REMOVED: Video overlay controls (no more opaque overlay on hover) */
+
+.video-title-overlay {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 600;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 2;
+}
+
+.video-container:hover .video-title-overlay {
+    opacity: 1;
+}
+
+/* Video quality/error indicators */
+.video-quality-indicator {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.video-error {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #f8f9fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    border: 2px dashed #dc3545;
+}
+
+.video-error-content {
+    text-align: center;
+    color: #dc3545;
+}
+
+.video-error-content i {
+    font-size: 2rem;
+    margin-bottom: 10px;
+}
+
+/* Responsive video */
+@media (max-width: 768px) {
+    .video-container {
+        border-radius: 6px;
+    }
+    
+    .video-play-overlay {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .video-play-overlay::before {
+        font-size: 20px;
+    }
+    
+    .video-title-overlay {
+        font-size: 1rem;
+        bottom: 15px;
+        left: 15px;
+        right: 15px;
+    }
+    
+    .video-quality-indicator {
+        top: 10px;
+        right: 10px;
+        font-size: 0.7rem;
+        padding: 3px 6px;
+    }
+}
+
+/* Picture-in-Picture support */
+.video-player::-webkit-media-controls-picture-in-picture-button {
+    display: block;
+    filter: invert(1);
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: 3px;
+}
+
+/* Fullscreen styling */
+.video-container:-webkit-full-screen {
+    width: 100vw;
+    height: 100vh;
+}
+
+.video-container:-moz-full-screen {
+    width: 100vw;
+    height: 100vh;
+}
+
+.video-container:fullscreen {
+    width: 100vw;
+    height: 100vh;
+    aspect-ratio: unset; /* Remove aspect ratio constraint in fullscreen */
+}
+
+.video-progress-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+    z-index: 4;
+}
+
+.video-progress-bar {
+    height: 100%;
+    background: var(--medical-gold, #FFD700);
+    width: 0%;
+    transition: width 0.1s ease;
+}
+
+.video-progress-container:hover {
+    height: 8px;
+}
+
+.video-progress-container:hover .video-progress-bar {
+    background: #FFA500;
+} 

@@ -1,0 +1,52 @@
+# Exclude user's local video files and archives
+YouTube_Downloads/
+YouTube_Downloads.zip
+BGCA_archive/
+bgca_yt_archive/
+data_backup_*/
+
+# Exclude parent directory files that should not be in repo
+../bgca_yt_archive/
+../logo.png
+../ytlogo.webp
+../*.py
+../*.sh
+../*.json
+
+# Exclude system files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Exclude temporary files
+*.tmp
+*.temp
+*.log
+
+# Exclude IDE files
+.vscode/
+.idea/
+*.sublime-*
+
+# Exclude local development files
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Exclude Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Exclude any local server logs
+server.log 
+
+# Keep required data files for BGCA Explorer
+# videos.json, comments.json, search_index.json, video_comments_index.json, 
+# transcript_index.json, and word_freq_index.json are included as they are 
+# required for the application to function

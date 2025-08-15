@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', Arial, sans-serif;
+            width: 590px;
+            height: 1280px;
+            overflow: hidden;
+            position: relative;
+            background: transparent;
+        }
+        
+        /* Main container with blank.png as background */
+        .phone-screenshot {
+            position: relative;
+            width: 590px;
+            height: 1280px;
+            background-image: url('file:///Volumes/EPHRAIM/Coding Projects Backup 6:20:25/Medical Medium Social Media Archival Tools/MMArchiveTool_3.0 (Backup - HTML:JS Local AND YT)/assets/blank.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        
+        /* Content overlay area - positioned to fit within the phone screen area */
+        .content-overlay {
+            position: absolute;
+            top: 165px; /* Below status bar and YouTube header */
+            left: 0;
+            right: 0;
+            bottom: 83px; /* Above bottom navigation */
+            overflow: hidden;
+        }
+        
+        /* Video thumbnail */
+        .video-thumbnail-container {
+            width: 100%;
+            height: 331px;
+            background: #000;
+            overflow: hidden;
+        }
+        
+        .video-thumbnail {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        /* Video info */
+        .video-info {
+            background: white;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e5e5e5;
+        }
+        
+        .video-title {
+            font-size: 16px;
+            font-weight: 500;
+            color: #030303;
+            line-height: 22px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        /* Comment section */
+        .comment-section {
+            background: white;
+            padding: 16px;
+            margin-top: 8px;
+        }
+        
+        .comment-card {
+            background: #f2f2f2;
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            gap: 12px;
+        }
+        
+        .comment-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #AVATAR_COLOR#;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 16px;
+            font-weight: 500;
+            flex-shrink: 0;
+        }
+        
+        .comment-body {
+            flex: 1;
+        }
+        
+        .comment-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        
+        .comment-author {
+            font-size: 13px;
+            font-weight: 500;
+            color: #030303;
+        }
+        
+        .comment-date {
+            font-size: 12px;
+            color: #606060;
+        }
+        
+        .comment-text {
+            font-size: 14px;
+            line-height: 20px;
+            color: #030303;
+            margin-bottom: 8px;
+            word-wrap: break-word;
+        }
+        
+        .comment-likes {
+            font-size: 12px;
+            color: #606060;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="phone-screenshot">
+        <div class="content-overlay">
+            <!-- Video thumbnail -->
+            <div class="video-thumbnail-container">
+                #VIDEO_THUMBNAIL#
+            </div>
+            
+            <!-- Video title -->
+            <div class="video-info">
+                <h2 class="video-title">#VIDEO_TITLE#</h2>
+            </div>
+            
+            <!-- Comment -->
+            <div class="comment-section">
+                <div class="comment-card">
+                    <div class="comment-avatar">#AVATAR_LETTER#</div>
+                    <div class="comment-body">
+                        <div class="comment-meta">
+                            <span class="comment-author">@#AUTHOR_NAME#</span>
+                            <span class="comment-date">#COMMENT_DATE#</span>
+                        </div>
+                        <div class="comment-text">#COMMENT_TEXT#</div>
+                        <div class="comment-likes">
+                            👍 #LIKE_COUNT#
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

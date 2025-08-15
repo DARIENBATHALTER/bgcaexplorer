@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BGCA YouTube Archive Explorer</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ff0000'%3E%3Cpath d='M8 5v14l11-7z'/%3E%3C/svg%3E">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Adobe Fonts (Typekit) for Proxima Nova -->
+    <link rel="preconnect" href="https://use.typekit.net">
+    <link rel="stylesheet" href="https://use.typekit.net/jmk3xov.css">
+    
+    <!-- Fallback Google Fonts for similar look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Proper ZIP-GO Implementation for Large Batches -->
+    <script type="importmap">
+    {
+        "imports": {
+            "fflate": "https://unpkg.com/fflate@0.8.2/esm/browser.js"
+        }
+    }
+    </script>
+    
+    <!-- App Styles -->
+    <link rel="stylesheet" href="css/app.css">
+    <link rel="stylesheet" href="css/video-player.css">
+    <link rel="stylesheet" href="css/directory-modal.css">
+</head>
+<body>
+    <!-- Header -->
+    <div class="titlebar">
+        <div class="titlebar-content">
+            <div class="titlebar-left">
+                <div id="homeButton" style="display: flex; align-items: center; cursor: pointer;" onclick="goToMainView()">
+                    <img src="../logo.png" alt="BGCA" style="height: 2rem; width: auto; margin-right: 12px;">
+                    <h1>BGCA YouTube Archive Explorer</h1>
+                </div>
+            </div>
+            <div class="titlebar-right">
+                <div class="titlebar-center" id="channel-navigation">
+                    <div class="titlebar-search">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="search-input" placeholder="Search videos by title, description, or keywords...">
+                    </div>
+                    <div class="titlebar-filters">
+                        <select id="sort-select" class="titlebar-filter-btn" style="border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px; background: rgba(255, 255, 255, 0.1); color: var(--titlebar-text); padding: 8px 12px;">
+                            <option value="date-desc">Newest First</option>
+                            <option value="date-asc">Oldest First</option>
+                            <option value="views-desc">Most Views</option>
+                            <option value="views-asc">Least Views</option>
+                            <option value="comments-desc">Most Comments</option>
+                            <option value="comments-asc">Least Comments</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="help-button" id="about-btn" title="About">
+                    <i class="fas fa-question"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Drawer Sidebar Removed for YouTube-only version -->
+
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="loading-screen">
+        <div class="loading-content">
+            <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <h3>Loading Archive...</h3>
+            <p id="loadingStatus">Initializing application...</p>
+            <div class="progress mt-3" style="width: 400px; height: 8px;">
+                <div id="loadingProgress" class="progress-bar bg-primary" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+            <small class="text-muted mt-2 d-block">
+                Processing videos and comments...
+            </small>
+        </div>
+    </div>
+
+    <!-- Password Protection Modal Removed for YouTube-only version -->
+
+    <!-- Welcome & Mode Selection Modal -->
+    <div id="directorySelectionModal" class="directory-modal" style="display: flex;">
+        <div class="gradient-background">
+            <div class="gradient-sphere sphere-1"></div>
+            <div class="gradient-sphere sphere-2"></div>
+            <div class="gradient-sphere sphere-3"></div>
+            <div class="glow"></div>
+            <div class="grid-overlay"></div>
+            <div class="noise-overlay"></div>
+        </div>
+        <canvas id="welcomeNetworkCanvas" class="network-canvas"></canvas>
+        <div class="directory-modal-content">
+            <div class="directory-modal-header">
+                <div class="welcome-logo">
+                    <img src="../logo.png" alt="Boys & Girls Clubs of America" style="height: 6rem; width: auto;">
+                </div>
+                <h3 class="mt-3 mb-2">Welcome to the<br>BGCA YouTube Archive Explorer</h3>
+                <p class="text-muted">Choose how you'd like to explore the Boys & Girls Clubs of America YouTube content:</p>
+            </div>
+            
+            <div class="directory-modal-body">
+                <!-- Mode Selection -->
+                <div id="modeSelection" class="mode-selection">
+                    <div class="row g-4 justify-content-center">
+                        <!-- YouTube mode disabled for BGCA Archive -->
+                        <div class="col-md-5 col-sm-6" style="display: none;">
+                            <div class="mode-card clickable-card" id="youtubeCard">
+                                <div class="mode-icon">
+                                    <i class="bi bi-youtube text-danger"></i>
+                                </div>
+                                <h5>YouTube</h5>
+                                <button id="selectYouTubeBtn" class="btn btn-danger btn-lg w-100">
+                                    <i class="bi bi-play-circle"></i> Begin
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-10 col-sm-8">
+                            <div class="mode-card clickable-card" id="localArchiveCard">
+                                <div class="mode-icon position-relative">
+                                    <i class="bi bi-folder-fill text-primary"></i>
+                                    <img src="../ytlogo.webp" alt="YouTube" class="position-absolute" style="width: 1.5rem; height: auto; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+                                </div>
+                                <button id="selectLocalArchiveBtn" class="btn btn-primary btn-lg w-100">
+                                    <i class="bi bi-play-circle"></i> Load Archive
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Local Archive Setup -->
+                <div id="localArchiveSetup" class="archive-setup" style="display: none;">
+                    <div class="setup-header">
+                        <button id="backToModeSelection" class="btn btn-link p-0 mb-3">
+                            <i class="bi bi-arrow-left"></i> Back to mode selection
+                        </button>
+                        <h4><i class="bi bi-folder"></i> Set Up Local Archive</h4>
+                        <p class="text-muted">Choose your downloaded video directory</p>
+                    </div>
+                    
+                    <div id="directoryApiSupported" class="api-method" style="display: none;">
+                        <div class="method-card">
+                            <h5><i class="bi bi-folder-check text-success"></i> Browser File Access</h5>
+                            <p>Your browser supports direct folder access. Click below to select your video directory.</p>
+                            <button id="selectDirectoryBtn" class="btn btn-primary btn-lg">
+                                <i class="bi bi-folder-plus"></i> Select Video Folder
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="directoryApiNotSupported" class="api-method" style="display: none;">
+                        <div class="method-card">
+                            <h5><i class="bi bi-server text-warning"></i> Local Server Required</h5>
+                            <p>Your browser doesn't support direct file access. You'll need to run a local server:</p>
+                            <div class="server-instructions">
+                                <ol>
+                                    <li>Open terminal in your video directory</li>
+                                    <li>Run: <code>python -m http.server 8080</code></li>
+                                    <li>Click "Use Local Server" below</li>
+                                </ol>
+                            </div>
+                            <button id="useLocalServerBtn" class="btn btn-warning btn-lg">
+                                <i class="bi bi-server"></i> Use Local Server (localhost:8080)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="directoryStatus" class="directory-status" style="display: none;">
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle"></i>
+                        <strong>Directory loaded:</strong> <span id="selectedDirectoryName"></span>
+                        <br>
+                        <small><span id="foundFilesCount"></span> video files found</small>
+                    </div>
+                    <button id="continueToAppBtn" class="btn btn-success btn-lg">
+                        <i class="bi bi-play-circle"></i> Continue to App
+                    </button>
+                </div>
+                
+                <div id="directoryError" class="directory-error" style="display: none;">
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>Error:</strong> <span id="errorMessage"></span>
+                    </div>
+                    <button id="retryDirectoryBtn" class="btn btn-outline-primary">
+                        <i class="bi bi-arrow-clockwise"></i> Try Again
+                    </button>
+                </div>
+            </div>
+            <div class="text-center mt-4" style="opacity: 0.6; font-size: 0.875rem;">
+                <p class="mb-0">© 2025 Boys & Girls Clubs of America</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app" class="container-fluid" style="display: none;">
+        
+        <!-- Navigation Breadcrumb & Stats Bar Combined -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <nav aria-label="breadcrumb">
+                <ol id="breadcrumb" class="breadcrumb mb-0">
+                <li class="breadcrumb-item active">Videos</li>
+            </ol>
+        </nav>
+
+        <!-- Stats Bar (Home View Only) -->
+            <div id="statsBar" class="stats-bar mb-0">
+                <div class="view-toggle-container me-3">
+                    <div class="view-toggle-wrapper">
+                        <span class="view-toggle-label">
+                            <i class="bi bi-grid-3x3-gap"></i>
+                        </span>
+                        <label class="view-toggle-switch">
+                            <input type="checkbox" id="listViewToggle">
+                            <span class="view-toggle-slider"></span>
+                        </label>
+                        <span class="view-toggle-label">
+                            <i class="bi bi-list-ul"></i>
+                        </span>
+                    </div>
+                </div>
+                <button type="button" id="commentAnalyticsBtn" class="btn btn-danger me-2">
+                <i class="bi bi-graph-up"></i> Comment Analytics
+            </button>
+                <button type="button" id="keywordAnalyticsBtn" class="btn btn-danger me-2">
+                    <i class="bi bi-tags"></i> Keyword Analytics
+                </button>
+                <button type="button" id="searchTranscriptsBtn" class="btn btn-danger me-2">
+                    <i class="bi bi-search"></i> Search Transcripts
+                </button>
+                <div class="dropdown">
+                    <button class="btn btn-secondary dropdown-toggle" type="button" id="exportAllVideosDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-download"></i> Export All Video Comments
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="exportAllVideosDropdown">
+                        <li><a class="dropdown-item" href="#" onclick="window.app.exportAllVideos('comment')">
+                            <i class="bi bi-chat-text"></i> Comment Only
+                        </a></li>
+                        <li><a class="dropdown-item" href="#" onclick="window.app.exportAllVideos('thumbnail')">
+                            <i class="bi bi-image"></i> iPhone Screenshot
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Channel Statistics -->
+        <div id="channelStats" class="channel-stats mb-4" style="display: none;">
+            <div class="row g-3">
+                <div class="col-md-2 col-sm-6">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="bi bi-play-btn-fill"></i>
+                        </div>
+                        <div class="stat-number" id="totalVideos">0</div>
+                        <div class="stat-label">Total<br>Videos</div>
+                    </div>
+                </div>
+                <div class="col-md-2 col-sm-6">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="bi bi-chat-dots-fill"></i>
+                        </div>
+                        <div class="stat-number" id="totalChannelComments">0</div>
+                        <div class="stat-label">Total<br>Comments</div>
+                    </div>
+                </div>
+                <div class="col-md-2 col-sm-6">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="bi bi-heart-fill"></i>
+                        </div>
+                        <div class="stat-number" id="totalLikes">0</div>
+                        <div class="stat-label">Total<br>Likes</div>
+                    </div>
+                </div>
+                <div class="col-md-2 col-sm-6">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="bi bi-eye-fill"></i>
+                        </div>
+                        <div class="stat-number" id="totalViews">0</div>
+                        <div class="stat-label">Total<br>Views</div>
+                    </div>
+                </div>
+                <div class="col-md-2 col-sm-6">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="bi bi-bar-chart-fill"></i>
+                        </div>
+                        <div class="stat-number" id="avgEngagement">0</div>
+                        <div class="stat-label">Average Video<br>Comments</div>
+                    </div>
+                </div>
+                <div class="col-md-2 col-sm-6">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="bi bi-people-fill"></i>
+                        </div>
+                        <div class="stat-number" id="uniqueCommenters">0</div>
+                        <div class="stat-label">Unique<br>Commenters</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Video Grid View -->
+        <div id="videoGridView" class="view-container">
+            <div id="videoGrid" class="row g-3">
+                <!-- Videos will be dynamically loaded here -->
+            </div>
+            
+            <!-- Pagination -->
+            <nav aria-label="Video pagination" class="mt-4">
+                <ul id="videoPagination" class="pagination justify-content-center">
+                    <!-- Pagination will be generated here -->
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Video List View -->
+        <div id="videoListView" class="view-container" style="display: none;">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col" class="sortable" data-sort="thumbnail" style="width: 120px;">
+                                <span class="d-flex align-items-center">
+                                    Thumbnail
+                                    <i class="bi bi-chevron-expand ms-1"></i>
+                                </span>
+                            </th>
+                            <th scope="col" class="sortable" data-sort="title">
+                                <span class="d-flex align-items-center">
+                                    Title
+                                    <i class="bi bi-chevron-expand ms-1"></i>
+                                </span>
+                            </th>
+                            <th scope="col" class="sortable" data-sort="date" style="width: 140px;">
+                                <span class="d-flex align-items-center">
+                                    Upload Date
+                                    <i class="bi bi-chevron-expand ms-1"></i>
+                                </span>
+                            </th>
+                            <th scope="col" class="sortable" data-sort="views" style="width: 100px;">
+                                <span class="d-flex align-items-center">
+                                    Views
+                                    <i class="bi bi-chevron-expand ms-1"></i>
+                                </span>
+                            </th>
+                            <th scope="col" class="sortable" data-sort="likes" style="width: 100px;">
+                                <span class="d-flex align-items-center">
+                                    Likes
+                                    <i class="bi bi-chevron-expand ms-1"></i>
+                                </span>
+                            </th>
+                            <th scope="col" class="sortable" data-sort="comments" style="width: 100px;">
+                                <span class="d-flex align-items-center">
+                                    Comments
+                                    <i class="bi bi-chevron-expand ms-1"></i>
+                                </span>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="videoListBody">
+                        <!-- Videos will be dynamically loaded here -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            <nav aria-label="Video pagination" class="mt-4">
+                <ul id="videoListPagination" class="pagination justify-content-center">
+                    <!-- Pagination will be generated here -->
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Video Detail View -->
+        <div id="videoDetailView" class="view-container" style="display: none;">
+            <div class="row">
+                <!-- Video Player Column -->
+                <div class="col-lg-8">
+                    <!-- Video Info -->
+                    <div class="video-info mb-4">
+                        <h2 id="videoTitle">Video Title</h2>
+                        <div class="video-meta text-muted">
+                            <span id="videoDate">Date</span> • 
+                            <span id="videoViews">0 views</span> • 
+                            <span id="videoCommentCount">0 comments</span>
+                        </div>
+                    </div>
+
+                    <div class="video-container mb-4">
+                        <video id="videoPlayer" class="video-player">
+                            <p>Your browser doesn't support HTML5 video.</p>
+                        </video>
+                        <div class="video-play-overlay" id="videoPlayOverlay"></div>
+                        
+                        <!-- Custom Video Controls -->
+                        <div class="custom-video-controls" id="customControls">
+                            <div class="controls-row">
+                                <button class="control-btn play-pause" id="playPauseBtn">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                                
+                                <div class="progress-container" id="progressContainer">
+                                    <div class="progress-bar" id="progressBar"></div>
+                                </div>
+                                
+                                <div class="time-display" id="timeDisplay">0:00 / 0:00</div>
+                                
+                                <div class="volume-container">
+                                    <button class="control-btn" id="muteBtn">
+                                        <i class="fas fa-volume-up"></i>
+                                    </button>
+                                    <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="100">
+                                </div>
+                                
+                                <button class="control-btn" id="fullscreenBtn">
+                                    <i class="fas fa-expand"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="video-fallback" id="videoFallback" style="display: none;">
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                Video file not found. <a href="#" id="openYouTubeLink" target="_blank">Watch on YouTube</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Comments Section -->
+                    <div class="comments-section">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h4>Comments</h4>
+                            <div class="dropdown">
+                                <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" id="exportVideoCommentsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-download"></i> Export All
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="exportVideoCommentsDropdown">
+                                    <li><a class="dropdown-item" href="#" onclick="window.app.exportVideoComments('comment')">
+                                        <i class="bi bi-chat-text"></i> Comment Only
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="window.app.exportVideoComments('thumbnail')">
+                                        <i class="bi bi-image"></i> iPhone Screenshot
+                                    </a></li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <!-- Comment Filters -->
+                        <div class="comment-filters mb-3">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                <input type="text" id="commentSearch" class="form-control" placeholder="Search comments...">
+                            </div>
+                            <div class="mt-2">
+                                <select id="commentSort" class="form-select form-select-sm">
+                                    <option value="likes-desc">Most Liked</option>
+                                    <option value="likes-asc">Least Liked</option>
+                                    <option value="date-desc">Newest</option>
+                                    <option value="date-asc">Oldest</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Comments List -->
+                        <div id="commentsList" class="comments-list">
+                            <!-- Comments will be loaded here -->
+                        </div>
+                        
+                        <!-- Load More Comments -->
+                        <div class="text-center mt-3">
+                            <button type="button" id="loadMoreComments" class="btn btn-outline-primary btn-sm" style="display: none;">
+                                Load More Comments
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Metadata/Insights Sidebar -->
+                <div class="col-lg-4">
+                    <!-- Comment Insights -->
+                    <div id="commentInsights" class="comment-insights mb-4" style="display: none;">
+                        <h5 class="mb-3">Analytics</h5>
+                        <div class="insights-tabs mb-3">
+                            <button class="btn btn-sm btn-outline-secondary active analytics-tab" data-tab="frequent">
+                                <i class="bi bi-cloud"></i> Words
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary analytics-tab" data-tab="liked">
+                                <i class="bi bi-heart"></i> Liked
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary analytics-tab" data-tab="themes">
+                                <i class="bi bi-tags"></i> Themes/Sentiment
+                            </button>
+                        </div>
+                        
+                        <div class="insights-content">
+                            <div id="frequentTab" class="insight-tab tab-pane active">
+                                <div class="tab-header">
+                                    <h6>Most Frequent Words</h6>
+                                    <small class="text-muted">Top words mentioned in comments</small>
+                                </div>
+                                <div id="analyticsWordCloud" class="analytics-word-cloud"></div>
+                            </div>
+                            
+                            <div id="likedTab" class="insight-tab tab-pane" style="display: none;">
+                                <div class="tab-header">
+                                    <h6>Most Liked Words</h6>
+                                    <small class="text-muted">Words from highest-liked comments</small>
+                                </div>
+                                <div id="analyticsLikedWords" class="analytics-liked-words"></div>
+                            </div>
+                            
+                            
+                            <div id="themesTab" class="insight-tab tab-pane" style="display: none;">
+                                <div class="tab-header">
+                                    <h6>Themes & Sentiment</h6>
+                                    <small class="text-muted">Common topics and emotional tone</small>
+                                </div>
+                                <div id="themesAnalysis" class="themes-analysis"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Video Content Insights -->
+                    <div id="videoContentInsights" class="video-content-insights mb-4">
+                        <h5 class="mb-3">Video Content</h5>
+                        <div class="content-tabs mb-3">
+                            <button class="btn btn-sm btn-outline-secondary active content-tab" data-tab="description">
+                                Description
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary content-tab" data-tab="transcript">
+                                Transcript
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary content-tab" data-tab="summary">
+                                Summary
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary content-tab" data-tab="keywords">
+                                Keywords
+                            </button>
+                        </div>
+                        
+                        <div class="content-body">
+                            <div id="descriptionTab" class="content-tab-pane active">
+                                <div class="tab-header">
+                                    <h6>Video Description</h6>
+                                    <small class="text-muted">Original video description</small>
+                                </div>
+                                <div id="videoDescription" class="video-description-content">
+                                    Video description...
+                                </div>
+                            </div>
+                            
+                            <div id="transcriptTab" class="content-tab-pane" style="display: none;">
+                                <div class="tab-header">
+                                    <h6>Video Transcript</h6>
+                                    <small class="text-muted">Auto-generated subtitles</small>
+                                </div>
+                                <div id="videoTranscript" class="video-transcript-content">
+                                    <div class="text-muted">Loading transcript...</div>
+                                </div>
+                            </div>
+                            
+                            <div id="summaryTab" class="content-tab-pane" style="display: none;">
+                                <div class="tab-header">
+                                    <h6>Video Summary</h6>
+                                    <small class="text-muted">3-sentence overview</small>
+                                </div>
+                                <div id="videoSummary" class="video-summary-content">
+                                    <div class="text-muted">Loading summary...</div>
+                                </div>
+                            </div>
+                            
+                            <div id="keywordsTab" class="content-tab-pane" style="display: none;">
+                                <div class="tab-header">
+                                    <h6>Video Keywords</h6>
+                                    <small class="text-muted">Key topics from transcript analysis</small>
+                                </div>
+                                <div id="videoKeywords" class="video-keywords-content">
+                                    <div class="text-muted">Loading keywords...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Progress Modal -->
+    <div class="export-progress" id="exportProgress" style="display: none;">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+            <h6 class="mb-0" id="exportProgressTitle">Exporting Comments</h6>
+            <button type="button" class="btn-close close-progress" aria-label="Close"></button>
+        </div>
+        
+        <!-- Current Video Progress (for multi-video export) -->
+        <div id="currentVideoProgress" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <small class="text-muted">Current Video:</small>
+                <small class="text-muted" id="currentVideoStats">0/0 comments</small>
+            </div>
+            <div class="progress mb-2" style="height: 6px;">
+                <div id="currentVideoProgressBar" class="progress-bar bg-info" role="progressbar" style="width: 0%"></div>
+            </div>
+        </div>
+        
+        <!-- Overall Progress -->
+        <div class="d-flex justify-content-between align-items-center mb-1">
+            <small class="text-muted" id="overallProgressLabel">Overall:</small>
+            <small class="text-muted" id="overallProgressStats">0/0</small>
+        </div>
+        <div class="progress mb-2" style="height: 8px;">
+            <div id="exportProgressBar" class="progress-bar" role="progressbar" style="width: 0%"></div>
+        </div>
+        <div id="exportProgressText" class="progress-text">Starting export...</div>
+    </div>
+
+    <!-- About Modal -->
+    <div class="about-modal" id="aboutModal">
+        <div class="about-modal-content">
+            <div class="about-modal-header">
+                <h2 class="about-modal-title">BGCA YouTube Archive Explorer</h2>
+                <button class="about-modal-close" id="closeAboutModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="about-modal-body">
+                <p class="copyright">© 2025 Darien Bathalter</p>
+                <p>For bespoke data visualization tools...</p>
+                <p><a href="https://quiettools.dev" target="_blank">https://quiettools.dev</a></p>
+                
+                <h3>Contact information:</h3>
+                <p>Email: <a href="mailto:hello@quiettools.dev">hello@quiettools.dev</a></p>
+                <p>Text / Voicemail: <a href="tel:+19045726183">(904) 572-6183</a></p>
+                
+                <p class="made-with">Made with Ode 🌿</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comment Analytics Modal -->
+    <div class="modal fade" id="commentAnalyticsModal" tabindex="-1" aria-labelledby="commentAnalyticsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="commentAnalyticsModalLabel">
+                        <i class="bi bi-graph-up"></i> Channel Comment Analytics
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Loading State -->
+                    <div id="commentAnalyticsLoading" class="text-center py-5" style="display: none;">
+                        <div class="spinner-border text-danger mb-3" role="status" style="width: 3rem; height: 3rem;">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <h5>Analyzing Comments...</h5>
+                        <p class="text-muted">Processing sentiment, themes, and engagement metrics</p>
+                        <div class="progress mt-3" style="width: 300px; margin: 0 auto;">
+                            <div id="commentAnalyticsProgress" class="progress-bar bg-danger" role="progressbar" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Analytics Content -->
+                    <div id="commentAnalyticsContent">
+                        <!-- Analytics Tiles -->
+                    <div class="analytics-tiles mb-4">
+                        <div class="row g-3">
+                            <div class="col-md-3 col-sm-6">
+                                <div class="analytics-tile">
+                                    <div class="tile-icon bg-danger">
+                                        <i class="bi bi-chat-dots-fill"></i>
+                                    </div>
+                                    <div class="tile-content">
+                                        <div class="tile-number" id="analyticsCommentsCount">0</div>
+                                        <div class="tile-label">Total Comments</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-sm-6">
+                                <div class="analytics-tile">
+                                    <div class="tile-icon bg-danger">
+                                        <i class="bi bi-heart-fill"></i>
+                                    </div>
+                                    <div class="tile-content">
+                                        <div class="tile-number" id="analyticsLikesCount">0</div>
+                                        <div class="tile-label">Total Likes</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-sm-6">
+                                <div class="analytics-tile">
+                                    <div class="tile-icon bg-secondary">
+                                        <i class="bi bi-people-fill"></i>
+                                    </div>
+                                    <div class="tile-content">
+                                        <div class="tile-number" id="analyticsUniqueCommenters">0</div>
+                                        <div class="tile-label">Unique Commenters</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-sm-6">
+                                <div class="analytics-tile">
+                                    <div class="tile-icon bg-secondary">
+                                        <i class="bi bi-bar-chart-fill"></i>
+                                    </div>
+                                    <div class="tile-content">
+                                        <div class="tile-number" id="analyticsAvgLikes">0</div>
+                                        <div class="tile-label">Avg Likes/Comment</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Unified Analytics Tabbed Interface -->
+                    <div class="unified-analytics mb-4">
+                        <div class="analytics-section">
+                            <!-- Tab Navigation -->
+                            <ul class="nav nav-tabs" id="analyticsTabsNav" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="liked-words-tab" data-bs-toggle="tab" data-bs-target="#liked-words-pane" type="button" role="tab" aria-controls="liked-words-pane" aria-selected="true">
+                                        <i class="bi bi-star"></i> Most Liked Words
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="frequent-words-tab" data-bs-toggle="tab" data-bs-target="#frequent-words-pane" type="button" role="tab" aria-controls="frequent-words-pane" aria-selected="false">
+                                        <i class="bi bi-cloud"></i> Most Frequent Words
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="themes-tab" data-bs-toggle="tab" data-bs-target="#themes-pane" type="button" role="tab" aria-controls="themes-pane" aria-selected="false">
+                                        <i class="bi bi-tags"></i> Themes/Sentiment
+                                    </button>
+                                </li>
+                            </ul>
+
+                            <!-- Tab Content -->
+                            <div class="tab-content" id="analyticsTabsContent">
+                                <!-- Most Liked Words Tab -->
+                                <div class="tab-pane fade show active" id="liked-words-pane" role="tabpanel" aria-labelledby="liked-words-tab">
+                                    <div class="tab-content-padding">
+                                        <div class="tab-header mb-3">
+                                            <h6 class="mb-1">Most Liked Words</h6>
+                                            <small class="text-muted">Words from highest-liked comments</small>
+                                        </div>
+                                        <div id="mostLikedWords" class="word-cloud">
+                                            <!-- Most liked words will be populated here -->
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Most Frequent Words Tab -->
+                                <div class="tab-pane fade" id="frequent-words-pane" role="tabpanel" aria-labelledby="frequent-words-tab">
+                                    <div class="tab-content-padding">
+                                        <div class="tab-header mb-3">
+                                            <h6 class="mb-1">Most Frequent Words</h6>
+                                            <small class="text-muted">Top words mentioned in comments</small>
+                                        </div>
+                                        <div id="mostFrequentWords" class="word-cloud">
+                                            <!-- Most frequent words will be populated here -->
+                                        </div>
+                                    </div>
+                                </div>
+
+
+                                <!-- Theme Analysis Tab -->
+                                <div class="tab-pane fade" id="themes-pane" role="tabpanel" aria-labelledby="themes-tab">
+                                    <div class="tab-content-padding">
+                                        <div class="tab-header mb-3">
+                                            <h6 class="mb-1">Themes & Sentiment Analysis</h6>
+                                            <small class="text-muted">Common topics, themes and emotional tone</small>
+                                        </div>
+                                        <div id="topThemes" class="top-themes">
+                                            <!-- Top themes will be populated here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- All Comments Section -->
+                    <div class="all-comments-section">
+                        <div class="mb-3">
+                            <h5><i class="bi bi-chat-square-text"></i> Search Channel Comments</h5>
+                        </div>
+                        
+                        <!-- Enhanced Comment Search -->
+                        <div class="comment-search-section mb-4">
+                            <div class="row mb-3">
+                                <div class="col-md-8">
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-danger text-white"><i class="bi bi-search"></i></span>
+                                        <input type="text" id="channelCommentSearch" class="form-control form-control-lg" placeholder="Search all channel comments...">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <select id="channelCommentSort" class="form-select form-select-lg">
+                                        <option value="likes-desc">Most Liked</option>
+                                        <option value="likes-asc">Least Liked</option>
+                                        <option value="date-desc">Newest</option>
+                                        <option value="date-asc">Oldest</option>
+                                        <option value="video">By Video</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="search-results-info">
+                                <span class="badge bg-secondary" id="commentSearchResults">0 comments found</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Comments List -->
+                        <div id="channelCommentsList" class="comments-list" style="max-height: 400px; overflow-y: auto;">
+                            <!-- Comments will be loaded here -->
+                        </div>
+                        
+                        <!-- Load More Comments -->
+                        <div class="text-center mt-3">
+                            <button type="button" id="loadMoreChannelComments" class="btn btn-outline-secondary btn-sm" style="display: none;">
+                                Load More Comments
+                            </button>
+                        </div>
+                    </div>
+                    </div> <!-- End commentAnalyticsContent -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Keyword Analytics Modal -->
+    <div class="modal fade" id="keywordAnalyticsModal" tabindex="-1" aria-labelledby="keywordAnalyticsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="keywordAnalyticsModalLabel">
+                        <i class="bi bi-tags"></i> Keyword Analytics
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Loading State -->
+                    <div id="keywordAnalyticsLoading" class="text-center py-5">
+                        <div class="spinner-border text-danger mb-3" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="text-muted">Analyzing keyword data...</p>
+                    </div>
+
+                    <!-- Analytics Content -->
+                    <div id="keywordAnalyticsContent" style="display: none;">
+                        <!-- Summary Stats -->
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <div class="analytics-card text-center">
+                                    <div class="analytics-icon">
+                                        <i class="bi bi-tags-fill text-danger"></i>
+                                    </div>
+                                    <div class="analytics-number" id="totalUniqueKeywords">0</div>
+                                    <div class="analytics-label">Unique Keywords</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="analytics-card text-center">
+                                    <div class="analytics-icon">
+                                        <i class="bi bi-play-circle-fill text-danger"></i>
+                                    </div>
+                                    <div class="analytics-number" id="videosWithKeywords">0</div>
+                                    <div class="analytics-label">Tagged Videos</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="analytics-card text-center">
+                                    <div class="analytics-icon">
+                                        <i class="bi bi-star-fill text-warning"></i>
+                                    </div>
+                                    <div class="analytics-number" id="avgKeywordsPerVideo">0</div>
+                                    <div class="analytics-label">Avg Keywords/Video</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="analytics-card text-center">
+                                    <div class="analytics-icon">
+                                        <i class="bi bi-trophy-fill text-warning"></i>
+                                    </div>
+                                    <div class="analytics-number" id="topKeywordFreq">0</div>
+                                    <div class="analytics-label">Most Used Frequency</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Top Keywords -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <div class="analytics-section">
+                                    <h6 class="section-title">
+                                        <i class="bi bi-list-ol"></i> Most Popular Keywords
+                                    </h6>
+                                    <div id="topKeywordsList" class="keyword-list">
+                                        <!-- Top keywords list will be populated here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Transcripts Modal -->
+    <div class="modal fade" id="searchTranscriptsModal" tabindex="-1" aria-labelledby="searchTranscriptsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="searchTranscriptsModalLabel">
+                        <i class="bi bi-search"></i> Search Transcripts
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Search Input -->
+                    <div class="search-section mb-4">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="search-input-group">
+                                    <i class="bi bi-search search-icon"></i>
+                                    <input type="text" id="transcriptSearchInput" class="form-control search-input" 
+                                           placeholder="Search through all video content..." 
+                                           autocomplete="off">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <button type="button" id="performTranscriptSearch" class="btn btn-danger w-100">
+                                    <i class="bi bi-search"></i> Search
+                                </button>
+                            </div>
+                        </div>
+                        <div class="search-tips mt-2">
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle"></i> 
+                                Search across all video titles, descriptions, and keywords.
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Search Results -->
+                    <div id="transcriptSearchResults" class="search-results">
+                        <div class="search-placeholder text-center py-5">
+                            <i class="bi bi-search search-placeholder-icon"></i>
+                            <h6 class="text-muted mt-3">Enter a search term to find videos</h6>
+                            <p class="text-muted small">Search through all videos</p>
+                        </div>
+                    </div>
+
+                    <!-- Loading State -->
+                    <div id="transcriptSearchLoading" class="text-center py-5" style="display: none;">
+                        <div class="spinner-border text-danger" role="status">
+                            <span class="visually-hidden">Searching...</span>
+                        </div>
+                        <p class="text-muted mt-3">Searching through content...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- App Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/archive-loader.js"></script>
+    <script src="js/directory-manager.js"></script>
+    <script src="js/mode-manager.js"></script>
+    <script src="js/data-manager.js"></script>
+    <script src="js/video-player.js"></script>
+    <script src="js/export-service.js"></script>
+    <script src="js/components/video-grid.js"></script>
+    <script src="js/components/comment-list.js"></script>
+    <script src="js/network-animation.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html> <!-- Force rebuild Wed Jun 25 16:41:38 EDT 2025 -->
+<!-- Deploy trigger Wed Jun 25 16:50:18 EDT 2025 -->
